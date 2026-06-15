@@ -1,0 +1,47 @@
+{{define "overview"}}{{template "base" .}}{{end}}
+
+{{define "content"}}
+  <section>
+    <span class="badge {{.Health.State.String}}">
+      <span class="dot {{.Health.State.String}}"></span>
+      <span class="state-label">{{.Health.State.String}}</span>
+    </span>
+  </section>
+
+  <section class="cards">
+    <div class="card">
+      <span class="label">Flags</span>
+      <span class="metric">{{.FlagCount}}</span>
+    </div>
+    <div class="card">
+      <span class="label">Components</span>
+      <span class="metric">{{.ComponentCount}}</span>
+    </div>
+    <div class="card">
+      <span class="label">Operational</span>
+      <span class="metric">{{.OperationalCount}}</span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Components</h2>
+    <table>
+      <thead>
+        <tr><th>Component</th><th>State</th></tr>
+      </thead>
+      <tbody>
+        {{range .Checks}}
+        <tr>
+          <td class="mono">{{.Component}}</td>
+          <td>
+            <span class="dot {{.State.String}}"></span>
+            <span class="state-label">{{.State.String}}</span>
+          </td>
+        </tr>
+        {{else}}
+        <tr><td colspan="2" class="muted">No components yet.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </section>
+{{end}}

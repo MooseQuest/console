@@ -1,0 +1,49 @@
+{{define "status"}}{{template "base" .}}{{end}}
+
+{{define "content"}}
+  <section class="panel">
+    <h2>Components</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>State</th>
+          <th>Latency</th>
+          <th>Last checked</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Components}}
+          {{template "component-row" .}}
+        {{else}}
+        <tr><td colspan="5" class="muted">No components yet.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </section>
+{{end}}
+
+{{/* component-row is the htmx-swappable <tr> for a single component. "Check now"
+     posts to /status/{key}/check and swaps the refreshed row in place. The data
+     is a componentView (see ui.go). */}}
+{{define "component-row"}}
+<tr id="component-{{.Key}}">
+  <td>
+    <div class="mono">{{.Key}}</div>
+    {{if .Name}}<div class="muted">{{.Name}}</div>{{end}}
+  </td>
+  <td>
+    <span class="dot {{.State.String}}"></span>
+    <span class="state-label">{{.State.String}}</span>
+  </td>
+  <td>{{if .HasCheck}}{{.Latency}}{{else}}<span class="muted">—</span>{{end}}</td>
+  <td>{{if .HasCheck}}{{.CheckedAt}}{{else}}<span class="muted">never</span>{{end}}</td>
+  <td class="right">
+    <button class="btn"
+            hx-post="/status/{{.Key}}/check"
+            hx-target="#component-{{.Key}}"
+            hx-swap="outerHTML">Check now</button>
+  </td>
+</tr>
+{{end}}

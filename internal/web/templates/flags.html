@@ -1,0 +1,45 @@
+{{define "flags"}}{{template "base" .}}{{end}}
+
+{{define "content"}}
+  <section class="panel">
+    <h2>Feature flags</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Description</th>
+          <th>Scope</th>
+          <th>Rollout</th>
+          <th>Enabled</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Flags}}
+          {{template "flag-row" .}}
+        {{else}}
+        <tr><td colspan="5" class="muted">No flags yet.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+  </section>
+{{end}}
+
+{{/* flag-row is the htmx-swappable <tr> for a single flag. The toggle posts to
+     /flags/{key}/toggle and swaps the returned row in place (outerHTML). */}}
+{{define "flag-row"}}
+<tr id="flag-{{.Key}}">
+  <td class="mono">{{.Key}}</td>
+  <td>{{if .Description}}{{.Description}}{{else}}<span class="muted">—</span>{{end}}</td>
+  <td><span class="state-label">{{.Scope}}</span></td>
+  <td>{{.Rollout}}%</td>
+  <td>
+    <button class="toggle {{if .Enabled}}on{{end}}"
+            hx-post="/flags/{{.Key}}/toggle"
+            hx-target="#flag-{{.Key}}"
+            hx-swap="outerHTML">
+      <span class="track"></span>
+      <span>{{if .Enabled}}On{{else}}Off{{end}}</span>
+    </button>
+  </td>
+</tr>
+{{end}}

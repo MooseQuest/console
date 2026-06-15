@@ -1,0 +1,35 @@
+{{define "base"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Console — {{.Title}}</title>
+  <link rel="stylesheet" href="/static/console.css">
+  <!-- TODO: vendor htmx for offline use -->
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark"></span> Console</div>
+      <nav class="nav">
+        <a href="/"        class="{{if eq .Nav "overview"}}active{{end}}">Overview</a>
+        <a href="/flags"   class="{{if eq .Nav "flags"}}active{{end}}">Flags</a>
+        <a href="/status"  class="{{if eq .Nav "status"}}active{{end}}">Status</a>
+      </nav>
+      <!-- AGPL-3.0 Appropriate Legal Notices: link to the running version's source. -->
+      <footer class="sidebar-foot">
+        Console — <a href="https://github.com/moosequest/console">source</a>,
+        <a href="https://github.com/moosequest/console/blob/main/LICENSE">AGPL-3.0</a>.
+        No warranty.
+      </footer>
+    </aside>
+    <div class="main">
+      <header class="topbar"><h1>{{.Title}}</h1></header>
+      <main class="content">
+        {{template "content" .}}
+      </main>
+    </div>
+  </div>
+</body>
+</html>{{end}}

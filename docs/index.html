@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Console — feature flags + status monitoring in one binary</title>
+  <meta name="description" content="Console is a modular, self-hostable Go control plane that combines feature flags and status monitoring in one static binary with embedded SQLite.">
+  <link rel="stylesheet" href="assets/docs.css">
+</head>
+<body>
+
+<header class="topnav">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="mark"></span> Console</a>
+    <nav>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#concepts">Concepts</a>
+      <a href="#docs">Docs</a>
+      <a href="https://github.com/moosequest/console">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<a id="top"></a>
+<section class="hero" style="border-top:none;">
+  <div class="wrap">
+    <span class="eyebrow">Early / v0.1</span>
+    <h1>One control plane for the apps you build.</h1>
+    <p class="lede">
+      Console combines <strong>feature flags</strong> and <strong>status monitoring</strong> in a single
+      static Go binary with an embedded SQLite database. Ship features safely behind deterministic
+      rollouts, watch your services from one dashboard and JSON API, and onboard an app in minutes —
+      by hand or with an LLM.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="getting-started.md">Get started</a>
+      <a class="btn" href="#quickstart">Quickstart</a>
+      <a class="btn" href="api.md">API reference</a>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="props">
+    <div class="prop">
+      <div class="icon">1</div>
+      <h3>One binary, no dependencies</h3>
+      <p>Pure-Go SQLite (no cgo) means a truly static binary you can drop on any host. Start with <code>./console serve</code>; move to Postgres when you outgrow a node.</p>
+    </div>
+    <div class="prop">
+      <div class="icon">2</div>
+      <h3>Modular by design</h3>
+      <p>Storage, status providers, and LLM providers all sit behind small Go interfaces. Swap or extend them without touching the core engine.</p>
+    </div>
+    <div class="prop">
+      <div class="icon">3</div>
+      <h3>API-first &amp; deterministic</h3>
+      <p>The dashboard is just a client of the same HTTP API your apps use. The same <code>(flag, subject)</code> always resolves the same way.</p>
+    </div>
+  </div>
+</div>
+
+<section id="quickstart">
+  <div class="wrap">
+    <h2>Quickstart</h2>
+    <p class="sub">From source to a running dashboard in four commands. Needs Go 1.22+.</p>
+<pre><code><span class="c"># 1. Build the single static binary</span>
+make build            <span class="c"># or: go build -o console ./cmd/console</span>
+
+<span class="c"># 2. Create a flag and evaluate it for a user</span>
+./console flag create new-dashboard -desc "New dashboard UI" -scope beta -rollout 50 -enabled
+./console flag eval   new-dashboard -subject user-123 -attr audience=beta
+
+<span class="c"># 3. Add a service to monitor, then check it</span>
+./console status add api -url https://example.com/health -name "Public API"
+./console status check api
+
+<span class="c"># 4. Start the dashboard + API</span>
+./console serve       <span class="c"># http://localhost:8080</span></code></pre>
+    <p class="sub" style="margin-top:var(--c-4);">
+      Prefer to be guided? Run <code>console onboard</code> for an interactive wizard, or
+      <code>console onboard -ai -name "Acme" -desc "..."</code> to have Claude draft the plan.
+      See <a href="onboarding.md">onboarding</a>.
+    </p>
+  </div>
+</section>
+
+<section id="screenshots">
+  <div class="wrap">
+    <h2>See it</h2>
+    <p class="sub">A server-rendered dashboard (htmx) on top of the same API your apps call.</p>
+    <div class="shots">
+      <figure class="shot" style="margin:0;">
+        <img src="assets/overview.png" alt="Console overview dashboard showing the aggregate health snapshot and metrics">
+        <figcaption class="cap">Overview — aggregate health at a glance</figcaption>
+      </figure>
+      <figure class="shot" style="margin:0;">
+        <img src="assets/flags.png" alt="Console feature flags page with toggles, scopes, and rollout percentages">
+        <figcaption class="cap">Flags — scopes, rollout, live toggles</figcaption>
+      </figure>
+      <figure class="shot" style="margin:0;">
+        <img src="assets/status.png" alt="Console status page listing monitored components and their health states">
+        <figcaption class="cap">Status — components &amp; latest checks</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="concepts">
+  <div class="wrap">
+    <h2>Concepts</h2>
+    <p class="sub">Two primitives, one engine each.</p>
+    <div class="concepts">
+      <div class="concept">
+        <h3>Feature flags</h3>
+        <p>
+          A flag has a <strong>scope</strong> (the audience it applies to) and a
+          <strong>rollout</strong> (the % of in-scope subjects who get it). Evaluation is
+          deterministic per subject via FNV hashing, so a rollout is stable across calls and processes.
+        </p>
+        <table>
+          <thead><tr><th>Scope</th><th>In scope when…</th></tr></thead>
+          <tbody>
+            <tr><td><code>all</code></td><td>always</td></tr>
+            <tr><td><code>beta</code> / <code>alpha</code></td><td>attribute <code>audience</code> equals the scope, or <code>beta</code>/<code>alpha</code> == <code>"true"</code></td></tr>
+            <tr><td><code>cohort</code></td><td>attribute <code>cohort</code> equals the flag's <code>cohort</code></td></tr>
+            <tr><td><code>experiment</code></td><td>always in scope; the linked experiment is metadata</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:var(--c-4);margin-bottom:0;">
+          Boolean flags resolve to <code>on</code>/<code>off</code>. Multivariate flags carry weighted
+          variants and resolve to one deterministically. <a href="flags.md">Read the flags guide →</a>
+        </p>
+      </div>
+      <div class="concept">
+        <h3>Status</h3>
+        <p>
+          A <strong>component</strong> is a monitored part of your app (an API, a worker, a database),
+          checked by a named <strong>provider</strong>. The built-in <code>http</code> provider probes a URL:
+        </p>
+        <table>
+          <thead><tr><th>Result</th><th>State</th></tr></thead>
+          <tbody>
+            <tr><td>2xx, or a matching <code>expect_status</code></td><td><span class="dot op"></span>operational</td></tr>
+            <tr><td>any other HTTP response</td><td><span class="dot deg"></span>degraded</td></tr>
+            <tr><td>connection error / timeout</td><td><span class="dot down"></span>down</td></tr>
+            <tr><td>missing <code>url</code></td><td><span class="dot unk"></span>unknown</td></tr>
+          </tbody>
+        </table>
+        <p style="margin-top:var(--c-4);margin-bottom:0;">
+          A <strong>snapshot</strong> aggregates the latest check per component into one overall state
+          (worst-wins; <code>unknown</code> never masks a real outage).
+          <a href="status.md">Read the status guide →</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="docs">
+  <div class="wrap">
+    <h2>Documentation</h2>
+    <p class="sub">Deep-dive references for every part of Console.</p>
+    <div class="docgrid">
+      <a class="doccard" href="getting-started.md"><h3>Getting started</h3><p>Install, create your first flag and check, serve, and onboard.</p></a>
+      <a class="doccard" href="flags.md"><h3>Feature flags</h3><p>Scopes, rollout, determinism, multivariate, CLI + API examples.</p></a>
+      <a class="doccard" href="status.md"><h3>Status monitoring</h3><p>Components, providers, checks, and snapshot aggregation.</p></a>
+      <a class="doccard" href="onboarding.md"><h3>Onboarding</h3><p>Human vs AI-Assisted modes, the plan, applying, and the generated guide.</p></a>
+      <a class="doccard" href="api.md"><h3>HTTP API</h3><p>Full endpoint reference with request/response JSON examples.</p></a>
+      <a class="doccard" href="architecture.md"><h3>Architecture</h3><p>Package layout, the interface seams, data flow, and the single-binary rationale.</p></a>
+      <a class="doccard" href="plugins.md"><h3>Plugins</h3><p>Implement a Store, status.Provider, or llm.Provider and wire it in.</p></a>
+      <a class="doccard" href="../CONTRIBUTING.md"><h3>Contributing</h3><p>Build, test, conventions, and how to land a PR.</p></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>Console — a MooseQuest LLC project. <a href="https://github.com/moosequest/console/blob/main/LICENSE">AGPL-3.0 licensed</a>.</span>
+    <span><a href="https://github.com/moosequest/console">github.com/moosequest/console</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

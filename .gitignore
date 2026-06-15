@@ -1,0 +1,24 @@
+# Binaries
+/console
+/dist/
+*.exe
+
+# Local databases
+*.db
+*.db-shm
+*.db-wal
+
+# Test / coverage artifacts
+*.out
+coverage.*
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+
+# Local env
+.env
+
+# Local agent notes — not part of the project
+CLAUDE.md

@@ -6,7 +6,9 @@ package flags
 
 import (
 	"context"
+	"fmt"
 	"hash/fnv"
+	"time"
 
 	"github.com/moosequest/console/internal/core"
 	"github.com/moosequest/console/internal/store"
@@ -15,6 +17,10 @@ import (
 // Engine evaluates feature flags and provides CRUD passthrough to its store.
 type Engine struct {
 	store store.FlagStore
+
+	// emit, when set, receives an Event when a flag changes. Optional; nil
+	// disables emission.
+	emit func(core.Event)
 }
 
 // New returns an Engine backed by the given store.
@@ -22,9 +28,31 @@ func New(s store.FlagStore) *Engine {
 	return &Engine{store: s}
 }
 
+// SetEmitter installs an event sink (e.g. a notify.Dispatcher's Emit). Passing
+// nil disables emission.
+func (e *Engine) SetEmitter(fn func(core.Event)) { e.emit = fn }
+
+// emitFlagChange sends a flag_changed event when an emitter is installed.
+func (e *Engine) emitFlagChange(key, message string) {
+	if e.emit == nil {
+		return
+	}
+	e.emit(core.Event{
+		Type:    core.EventFlagChanged,
+		Title:   "Flag " + key + " changed",
+		Message: message,
+		Flag:    key,
+		At:      time.Now().UTC(),
+	})
+}
+
 // Create persists a new flag.
 func (e *Engine) Create(ctx context.Context, f core.Flag) error {
-	return e.store.CreateFlag(ctx, f)
+	if err := e.store.CreateFlag(ctx, f); err != nil {
+		return err
+	}
+	e.emitFlagChange(f.Key, fmt.Sprintf("created (enabled=%t, scope=%s, rollout=%d%%)", f.Enabled, f.Scope, f.Rollout))
+	return nil
 }
 
 // Get loads a flag by key.
@@ -39,12 +67,20 @@ func (e *Engine) List(ctx context.Context) ([]core.Flag, error) {
 
 // Update persists changes to an existing flag.
 func (e *Engine) Update(ctx context.Context, f core.Flag) error {
-	return e.store.UpdateFlag(ctx, f)
+	if err := e.store.UpdateFlag(ctx, f); err != nil {
+		return err
+	}
+	e.emitFlagChange(f.Key, fmt.Sprintf("updated (enabled=%t, scope=%s, rollout=%d%%)", f.Enabled, f.Scope, f.Rollout))
+	return nil
 }
 
 // Delete removes a flag by key.
 func (e *Engine) Delete(ctx context.Context, key string) error {
-	return e.store.DeleteFlag(ctx, key)
+	if err := e.store.DeleteFlag(ctx, key); err != nil {
+		return err
+	}
+	e.emitFlagChange(key, "deleted")
+	return nil
 }
 
 // Evaluate resolves key for subj. The result is deterministic per (flag,

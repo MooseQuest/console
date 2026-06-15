@@ -19,7 +19,15 @@ type Engine struct {
 
 	mu        sync.RWMutex
 	providers map[string]Provider
+
+	// emit, when set, receives an Event on a meaningful health transition. It is
+	// optional: nil disables emission (and the extra read it requires).
+	emit func(core.Event)
 }
+
+// SetEmitter installs an event sink (e.g. a notify.Dispatcher's Emit). Passing
+// nil disables emission. Safe to call once at startup before checks run.
+func (e *Engine) SetEmitter(fn func(core.Event)) { e.emit = fn }
 
 // New builds an Engine and registers the given providers by Name.
 func New(comps store.ComponentStore, checks store.CheckStore, providers ...Provider) *Engine {
@@ -80,24 +88,82 @@ func (e *Engine) DeleteComponent(ctx context.Context, key string) error {
 // result, and returns it. If the provider is unknown the result is a
 // StateUnknown check; it is still recorded so the snapshot reflects reality.
 func (e *Engine) Run(ctx context.Context, comp core.Component) core.Check {
-	p, ok := e.provider(comp.Provider)
-	if !ok {
-		check := core.Check{
+	// Capture the prior state before recording, but only when an emitter is
+	// installed — otherwise skip the extra read.
+	prevState := core.StateUnknown
+	if e.emit != nil {
+		if prev, err := e.checks.LatestCheck(ctx, comp.Key); err == nil {
+			prevState = prev.State
+		}
+	}
+
+	var check core.Check
+	if p, ok := e.provider(comp.Provider); ok {
+		check = p.Check(ctx, comp)
+		if check.Component == "" {
+			check.Component = comp.Key
+		}
+	} else {
+		check = core.Check{
 			Component: comp.Key,
 			State:     core.StateUnknown,
 			Message:   fmt.Sprintf("unknown provider %q", comp.Provider),
 			CheckedAt: time.Now().UTC(),
 		}
-		_ = e.checks.RecordCheck(ctx, check)
-		return check
 	}
 
-	check := p.Check(ctx, comp)
-	if check.Component == "" {
-		check.Component = comp.Key
-	}
 	_ = e.checks.RecordCheck(ctx, check)
+
+	if e.emit != nil {
+		if et, ok := classifyTransition(prevState, check.State); ok {
+			e.emit(transitionEvent(et, comp, prevState, check))
+		}
+	}
 	return check
+}
+
+// classifyTransition maps a state change to an event type, returning false when
+// the change is not noteworthy. A first-ever check is modeled as a transition
+// from StateUnknown, so a newly-added broken component still alerts, while a
+// healthy first check (unknown -> operational) stays quiet.
+func classifyTransition(prev, cur core.HealthState) (core.EventType, bool) {
+	if cur == prev {
+		return "", false
+	}
+	switch cur {
+	case core.StateDown:
+		return core.EventComponentDown, true
+	case core.StateDegraded:
+		return core.EventComponentDegraded, true
+	case core.StateOperational:
+		if prev == core.StateDown || prev == core.StateDegraded {
+			return core.EventComponentRecovered, true
+		}
+		return "", false
+	default: // -> unknown is not noteworthy
+		return "", false
+	}
+}
+
+// transitionEvent builds the Event for a component health transition.
+func transitionEvent(et core.EventType, comp core.Component, prev core.HealthState, check core.Check) core.Event {
+	name := comp.Name
+	if name == "" {
+		name = comp.Key
+	}
+	title := fmt.Sprintf("%s is %s", name, check.State)
+	if et == core.EventComponentRecovered {
+		title = fmt.Sprintf("%s recovered (now %s)", name, check.State)
+	}
+	return core.Event{
+		Type:      et,
+		Title:     title,
+		Message:   check.Message,
+		Component: comp.Key,
+		From:      prev,
+		To:        check.State,
+		At:        check.CheckedAt,
+	}
 }
 
 // RunAll checks every component and returns the resulting checks. Components

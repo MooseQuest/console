@@ -139,11 +139,24 @@ All configuration is via environment variables (CLI flags override per-command):
 | Variable | Default | Purpose |
 |---|---|---|
 | `CONSOLE_ADDR` | `:8080` | HTTP listen address |
-| `CONSOLE_DB` | `console.db` | SQLite path / DSN (`""` for in-memory) |
+| `CONSOLE_DB` | `console.db` | Storage DSN: a SQLite path (`""` = in-memory), or a `postgres://…` URL to use Postgres |
 | `CONSOLE_LLM_PROVIDER` | `anthropic` | LLM provider for AI mode (`""` to disable) |
 | `CONSOLE_MODEL` | provider default | LLM model override |
 | `ANTHROPIC_API_KEY` | — | API key for the Anthropic provider |
 | `CLOUDFLARE_API_TOKEN` | — | Default token for the Cloudflare Workers status provider |
+
+### Storage backends
+
+Console defaults to an embedded **SQLite** database (zero setup, one file). To use
+a hosted/mature database, point `CONSOLE_DB` at a Postgres URL — the backend is
+selected automatically by the DSN scheme:
+
+```bash
+CONSOLE_DB="postgres://user:pass@host:5432/console?sslmode=require" console serve
+```
+
+Both backends use a pure-Go driver, so the binary stays cgo-free. Storage is a
+plugin seam (`store.Store`), so additional backends slot in the same way.
 
 ## Architecture
 

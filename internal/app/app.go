@@ -7,6 +7,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/moosequest/console/internal/config"
 	"github.com/moosequest/console/internal/flags"
@@ -14,6 +15,7 @@ import (
 	"github.com/moosequest/console/internal/status"
 	"github.com/moosequest/console/internal/status/cloudflare"
 	"github.com/moosequest/console/internal/store"
+	"github.com/moosequest/console/internal/store/postgres"
 	"github.com/moosequest/console/internal/store/sqlite"
 )
 
@@ -33,7 +35,7 @@ type App struct {
 // flag and status engines (registering the built-in HTTP status provider), and
 // selects the LLM provider when one is configured. The caller owns Close.
 func New(ctx context.Context, cfg config.Config) (*App, error) {
-	st, err := sqlite.Open(ctx, cfg.DB)
+	st, err := openStore(ctx, cfg.DB)
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
@@ -49,6 +51,16 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		LLM: newLLM(cfg),
 	}
 	return a, nil
+}
+
+// openStore selects the storage backend from the DSN. A postgres:// or
+// postgresql:// DSN uses the Postgres backend; anything else (a file path or
+// "" for in-memory) uses the embedded SQLite backend.
+func openStore(ctx context.Context, dsn string) (store.Store, error) {
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		return postgres.Open(ctx, dsn)
+	}
+	return sqlite.Open(ctx, dsn)
 }
 
 // newLLM builds the configured LLM provider, or returns nil to disable

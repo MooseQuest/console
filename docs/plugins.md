@@ -4,7 +4,7 @@ Console is built to be extended. Three small Go interfaces are the seams:
 
 | Seam | Interface | Default | What it controls |
 |---|---|---|---|
-| Storage | `store.Store` | SQLite | where flags, components, and checks are persisted |
+| Storage | `store.Store` | SQLite, Postgres | where flags, components, and checks are persisted |
 | Status | `status.Provider` | `http` | how a component's health is checked |
 | LLM | `llm.Provider` | Anthropic | the model behind AI-Assisted onboarding |
 
@@ -146,21 +146,22 @@ func (s *Store) Ping(ctx context.Context) error { /* ... */ }
 func (s *Store) Close() error { /* ... */ }
 ```
 
-Wire it in `internal/app/app.go` where the store is opened. The default opens
-SQLite directly; to support a choice, branch on the config (you might add a
-`CONSOLE_STORE`-style selector):
+Wire it in `internal/app/app.go`, where `openStore` selects the backend from the
+DSN. Console ships **SQLite** (default) and **Postgres** (`internal/store/postgres`,
+a pure-Go `pgx` backend) — Postgres is selected automatically when `CONSOLE_DB`
+is a `postgres://` URL:
 
 ```go
-st, err := sqlite.Open(ctx, cfg.DB)   // ← the existing line
-// becomes, for example:
-// var st store.Store
-// switch cfg.Store {
-// case "postgres":
-//     st, err = postgres.Open(ctx, cfg.DB)
-// default:
-//     st, err = sqlite.Open(ctx, cfg.DB)
-// }
+func openStore(ctx context.Context, dsn string) (store.Store, error) {
+    if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+        return postgres.Open(ctx, dsn)
+    }
+    return sqlite.Open(ctx, dsn)
+}
 ```
+
+A new backend adds a case here (by DSN scheme, or a `CONSOLE_STORE`-style
+selector) and lives in its own subpackage carrying its own pure-Go driver.
 
 Because the engines depend on `store.Store` (and its sub-interfaces), no engine,
 server, or CLI code changes.

@@ -12,6 +12,7 @@ import (
 	"github.com/moosequest/console/internal/flags"
 	"github.com/moosequest/console/internal/llm"
 	"github.com/moosequest/console/internal/status"
+	"github.com/moosequest/console/internal/status/cloudflare"
 	"github.com/moosequest/console/internal/store"
 	"github.com/moosequest/console/internal/store/sqlite"
 )
@@ -41,8 +42,11 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Config: cfg,
 		Store:  st,
 		Flags:  flags.New(st),
-		Status: status.New(st, st, &status.HTTPProvider{}),
-		LLM:    newLLM(cfg),
+		Status: status.New(st, st,
+			&status.HTTPProvider{},
+			cloudflare.New(cloudflare.WithToken(cfg.CloudflareToken)),
+		),
+		LLM: newLLM(cfg),
 	}
 	return a, nil
 }

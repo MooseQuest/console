@@ -7,6 +7,7 @@ overview.
 - [Components](#components)
 - [Providers](#providers)
 - [The http provider](#the-http-provider)
+- [The cloudflare-workers provider](#the-cloudflare-workers-provider)
 - [Checks and health states](#checks-and-health-states)
 - [Snapshot aggregation](#snapshot-aggregation)
 - [CLI](#cli)
@@ -32,9 +33,10 @@ config map the provider interprets.
 
 A provider performs a single health check and returns its state. Providers are
 registered by name; a component selects one via its `provider` field. Console
-ships with the built-in **`http`** provider. Additional providers (TCP, a custom
-probe, a downstream dependency check) are added by implementing the
-`status.Provider` interface and registering them — see [plugins](plugins.md).
+ships with the built-in **`http`** provider and a **`cloudflare-workers`**
+provider. Additional providers (TCP, a custom probe, a downstream dependency
+check) are added by implementing the `status.Provider` interface and registering
+them — see [plugins](plugins.md).
 
 If a component names a provider that isn't registered, its check is recorded as
 `unknown` with a message — it is still recorded so the snapshot reflects reality.
@@ -76,6 +78,51 @@ Example component using a custom method, expected code, and timeout:
     "expect_status": "200",
     "timeout": "2s"
   }
+}
+```
+
+## The cloudflare-workers provider
+
+The `cloudflare-workers` provider reports a Cloudflare Worker's health from its
+recent invocation analytics. It queries the Cloudflare GraphQL Analytics API
+(`workersInvocationsAdaptive`) for the request and error counts over a trailing
+window and maps the error rate to a state.
+
+Config keys:
+
+| Key | Required | Default | Meaning |
+|---|---|---|---|
+| `account_id` | yes | — | Cloudflare account tag |
+| `worker` | yes | — | Worker script name (alias: `script`) |
+| `api_token` | no | `CLOUDFLARE_API_TOKEN` | per-component token override |
+| `window` | no | `15m` | trailing window (Go duration) |
+| `degraded_pct` | no | `1` | error-rate % at/above which state is degraded |
+| `down_pct` | no | `5` | error-rate % at/above which state is down |
+| `timeout` | no | `10s` | API call timeout |
+
+State mapping (error rate = errors / requests over the window):
+
+| Condition | State |
+|---|---|
+| rate `< degraded_pct` | **operational** |
+| `degraded_pct ≤` rate `< down_pct` | **degraded** |
+| rate `≥ down_pct` | **down** |
+| Cloudflare API/network failure or GraphQL error | **down** |
+| missing `account_id` / `worker` / token | **unknown** |
+| zero invocations in the window (idle) | **unknown** |
+
+```bash
+console status add my-api -provider cloudflare-workers
+# then set its config (account_id, worker) via the API, or:
+export CLOUDFLARE_API_TOKEN=...   # used as the default token
+```
+
+```json
+{
+  "key": "my-api",
+  "name": "My Worker",
+  "provider": "cloudflare-workers",
+  "config": { "account_id": "22b5…", "worker": "my-api", "window": "30m" }
 }
 ```
 

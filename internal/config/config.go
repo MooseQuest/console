@@ -24,6 +24,9 @@ type Config struct {
 	AnthropicKey string
 	// Model overrides the default LLM model when set.
 	Model string
+	// CloudflareToken is the default Cloudflare API token used by Cloudflare
+	// status providers when a component does not set its own "api_token".
+	CloudflareToken string
 }
 
 // Default returns the baseline configuration before env/flag overrides.
@@ -43,6 +46,7 @@ func Default() Config {
 //	CONSOLE_LLM_PROVIDER  LLM provider name (default "anthropic", "" to disable)
 //	CONSOLE_MODEL         LLM model override
 //	ANTHROPIC_API_KEY     Anthropic API key
+//	CLOUDFLARE_API_TOKEN  default token for Cloudflare status providers
 func FromEnv() Config {
 	c := Default()
 	if v := os.Getenv("CONSOLE_ADDR"); v != "" {
@@ -58,5 +62,6 @@ func FromEnv() Config {
 		c.Model = v
 	}
 	c.AnthropicKey = os.Getenv("ANTHROPIC_API_KEY")
+	c.CloudflareToken = os.Getenv("CLOUDFLARE_API_TOKEN")
 	return c
 }

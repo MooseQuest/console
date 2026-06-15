@@ -73,6 +73,8 @@ A **component** is a monitored part of your app (an API, a worker, a database), 
 - any other HTTP response → **degraded**
 - connection error / timeout → **down**
 
+Providers are pluggable. Beyond the built-in `http` provider, Console ships a **`cloudflare-workers`** provider that reads a Worker's recent invocation analytics (Cloudflare GraphQL API) and maps its error rate to operational/degraded/down — config keys `account_id`, `worker`, optional `api_token` (falls back to `CLOUDFLARE_API_TOKEN`), `window`, `degraded_pct`, `down_pct`.
+
 A **snapshot** aggregates the latest check per component into one overall health state (worst-wins; a not-yet-checked component never masks a real outage).
 
 ## CLI
@@ -141,6 +143,7 @@ All configuration is via environment variables (CLI flags override per-command):
 | `CONSOLE_LLM_PROVIDER` | `anthropic` | LLM provider for AI mode (`""` to disable) |
 | `CONSOLE_MODEL` | provider default | LLM model override |
 | `ANTHROPIC_API_KEY` | — | API key for the Anthropic provider |
+| `CLOUDFLARE_API_TOKEN` | — | Default token for the Cloudflare Workers status provider |
 
 ## Architecture
 

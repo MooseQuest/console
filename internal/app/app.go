@@ -11,6 +11,8 @@ import (
 	"github.com/moosequest/console/internal/config"
 	"github.com/moosequest/console/internal/flags"
 	"github.com/moosequest/console/internal/llm"
+	"github.com/moosequest/console/internal/notify"
+	"github.com/moosequest/console/internal/notify/slack"
 	"github.com/moosequest/console/internal/status"
 	"github.com/moosequest/console/internal/status/cloudflare"
 	"github.com/moosequest/console/internal/store"
@@ -27,6 +29,9 @@ type App struct {
 	// configured; callers must treat AI-Assisted mode as unavailable in that
 	// case and fall back to Human mode.
 	LLM llm.Provider
+	// Notify fans status transitions and flag changes out to registered sinks
+	// (e.g. Slack). Always non-nil; it may simply have no notifiers registered.
+	Notify *notify.Dispatcher
 }
 
 // New assembles an App from cfg. It opens the storage backend, constructs the
@@ -46,9 +51,27 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 			&status.HTTPProvider{},
 			cloudflare.New(cloudflare.WithToken(cfg.CloudflareToken)),
 		),
-		LLM: newLLM(cfg),
+		LLM:    newLLM(cfg),
+		Notify: newNotify(cfg),
+	}
+
+	// Wire the engines to the dispatcher only when something is listening, so
+	// emission (and the extra read it costs) is skipped when no sink is set up.
+	if a.Notify.Len() > 0 {
+		a.Status.SetEmitter(a.Notify.Emit)
+		a.Flags.SetEmitter(a.Notify.Emit)
 	}
 	return a, nil
+}
+
+// newNotify builds the notification dispatcher, registering sinks that are
+// configured. An empty dispatcher (no sinks) is returned otherwise.
+func newNotify(cfg config.Config) *notify.Dispatcher {
+	d := notify.NewDispatcher()
+	if cfg.SlackWebhookURL != "" {
+		d.Register(slack.New(cfg.SlackWebhookURL))
+	}
+	return d
 }
 
 // newLLM builds the configured LLM provider, or returns nil to disable

@@ -103,6 +103,11 @@ message, so misconfiguration is visible rather than silent.
 
 ## Add a storage backend
 
+> Storage backends now run **out-of-process** as gRPC plugins — see
+> [plugins-architecture.md](plugins-architecture.md). The interface below is what
+> a backend implements; it is then served from a `console-plugin-*` executable
+> rather than compiled into the core. SQLite remains the built-in default.
+
 A storage backend persists every domain object. The interface composes three
 smaller ones:
 

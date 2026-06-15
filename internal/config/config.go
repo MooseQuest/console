@@ -30,6 +30,10 @@ type Config struct {
 	// SlackWebhookURL, when set, enables Slack notifications via an Incoming
 	// Webhook for status transitions and flag changes.
 	SlackWebhookURL string
+	// StorePlugin is the path to an out-of-process storage-backend plugin
+	// executable (e.g. console-plugin-postgres). When set, it replaces the
+	// built-in SQLite store; the plugin inherits this process's environment.
+	StorePlugin string
 }
 
 // Default returns the baseline configuration before env/flag overrides.
@@ -51,6 +55,7 @@ func Default() Config {
 //	ANTHROPIC_API_KEY     Anthropic API key
 //	CLOUDFLARE_API_TOKEN  default token for Cloudflare status providers
 //	CONSOLE_SLACK_WEBHOOK_URL  Slack Incoming Webhook for notifications
+//	CONSOLE_STORE_PLUGIN  path to an out-of-process storage-backend plugin
 func FromEnv() Config {
 	c := Default()
 	if v := os.Getenv("CONSOLE_ADDR"); v != "" {
@@ -68,5 +73,6 @@ func FromEnv() Config {
 	c.AnthropicKey = os.Getenv("ANTHROPIC_API_KEY")
 	c.CloudflareToken = os.Getenv("CLOUDFLARE_API_TOKEN")
 	c.SlackWebhookURL = os.Getenv("CONSOLE_SLACK_WEBHOOK_URL")
+	c.StorePlugin = os.Getenv("CONSOLE_STORE_PLUGIN")
 	return c
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/moosequest/console/internal/llm"
 	"github.com/moosequest/console/internal/notify"
 	"github.com/moosequest/console/internal/notify/slack"
+	"github.com/moosequest/console/internal/plugin"
 	"github.com/moosequest/console/internal/status"
 	"github.com/moosequest/console/internal/status/cloudflare"
 	"github.com/moosequest/console/internal/store"
@@ -38,7 +39,7 @@ type App struct {
 // flag and status engines (registering the built-in HTTP status provider), and
 // selects the LLM provider when one is configured. The caller owns Close.
 func New(ctx context.Context, cfg config.Config) (*App, error) {
-	st, err := sqlite.Open(ctx, cfg.DB)
+	st, err := openStore(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
@@ -62,6 +63,17 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		a.Flags.SetEmitter(a.Notify.Emit)
 	}
 	return a, nil
+}
+
+// openStore opens the storage backend. When cfg.StorePlugin is set it launches
+// that out-of-process plugin (e.g. Postgres) and uses it over gRPC; otherwise it
+// uses the built-in SQLite backend. The core does not import any plugin-only
+// backend — those live in their own plugin executables.
+func openStore(ctx context.Context, cfg config.Config) (store.Store, error) {
+	if cfg.StorePlugin != "" {
+		return plugin.LoadStore(cfg.StorePlugin)
+	}
+	return sqlite.Open(ctx, cfg.DB)
 }
 
 // newNotify builds the notification dispatcher, registering sinks that are

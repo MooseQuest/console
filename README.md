@@ -149,6 +149,23 @@ All configuration is via environment variables (CLI flags override per-command):
 | `ANTHROPIC_API_KEY` | — | API key for the Anthropic provider |
 | `CLOUDFLARE_API_TOKEN` | — | Default token for the Cloudflare Workers status provider |
 | `CONSOLE_SLACK_WEBHOOK_URL` | — | Slack Incoming Webhook for notifications (enables Slack alerts) |
+| `CONSOLE_STORE_PLUGIN` | — | Path to an out-of-process storage plugin (e.g. `console-plugin-postgres`); replaces built-in SQLite |
+
+### Plugins
+
+Console is extended with **out-of-process plugins** — separate executables the host
+launches and talks to over gRPC (the Terraform model), so you add a capability by
+dropping a binary, with no core recompile. SQLite is built in as the default; other
+backends ship as plugins. For example, to use Postgres:
+
+```bash
+make build && make plugins                 # ./console + ./bin/console-plugin-postgres
+export CONSOLE_STORE_PLUGIN=$PWD/bin/console-plugin-postgres
+export CONSOLE_DB="postgres://user:pass@host:5432/console?sslmode=require"
+./console serve
+```
+
+See [docs/plugins-architecture.md](docs/plugins-architecture.md) for the full design.
 
 ## Architecture
 
@@ -178,6 +195,7 @@ A full docs site lives in [`docs/`](docs/) (served via GitHub Pages from `docs/i
 - [Onboarding (Human + AI-Assisted)](docs/onboarding.md)
 - [HTTP API reference](docs/api.md)
 - [Architecture](docs/architecture.md)
+- [Plugin architecture (out-of-process gRPC)](docs/plugins-architecture.md)
 - [Writing plugins](docs/plugins.md)
 
 ## Development

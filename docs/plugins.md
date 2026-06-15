@@ -1,12 +1,13 @@
 # Plugins
 
-Console is built to be extended. Three small Go interfaces are the seams:
+Console is built to be extended. Four small Go interfaces are the seams:
 
 | Seam | Interface | Default | What it controls |
 |---|---|---|---|
 | Storage | `store.Store` | SQLite | where flags, components, and checks are persisted |
-| Status | `status.Provider` | `http` | how a component's health is checked |
+| Status | `status.Provider` | `http`, `cloudflare-workers` | how a component's health is checked |
 | LLM | `llm.Provider` | Anthropic | the model behind AI-Assisted onboarding |
+| Notify | `notify.Notifier` | Slack (when configured) | where status/flag events are delivered |
 
 Adding a plugin is always the same two steps: **implement the interface**, then
 **wire it in** at the composition root (`internal/app/app.go`). Nothing above the
@@ -15,6 +16,7 @@ seam needs to change.
 - [Add a status provider](#add-a-status-provider)
 - [Add a storage backend](#add-a-storage-backend)
 - [Add an LLM provider](#add-an-llm-provider)
+- [Add a notifier](#add-a-notifier)
 - [Conventions](#conventions)
 
 ## Add a status provider
@@ -236,6 +238,61 @@ func newLLM(cfg config.Config) llm.Provider {
 Returning `nil` for an unknown provider is intentional: AI-Assisted onboarding
 becomes unavailable and callers fall back to Human mode. Set
 `CONSOLE_LLM_PROVIDER` to select your provider at runtime.
+
+## Add a notifier
+
+A notifier delivers a `core.Event` (a status transition or flag change) to an
+external destination. The status and flag engines emit events; a
+`notify.Dispatcher` fans each one out to every registered notifier.
+
+```go
+// Notifier — internal/notify/notify.go
+type Notifier interface {
+    Name() string
+    Notify(ctx context.Context, ev core.Event) error
+}
+```
+
+A webhook notifier, for example:
+
+```go
+// internal/notify/webhook/webhook.go
+type Notifier struct{ URL string; HTTP *http.Client }
+
+func (n *Notifier) Name() string { return "webhook" }
+
+func (n *Notifier) Notify(ctx context.Context, ev core.Event) error {
+    body, _ := json.Marshal(ev) // core.Event is JSON-tagged
+    req, _ := http.NewRequestWithContext(ctx, http.MethodPost, n.URL, bytes.NewReader(body))
+    req.Header.Set("Content-Type", "application/json")
+    resp, err := n.client().Do(req)
+    if err != nil { return err }
+    defer resp.Body.Close()
+    if resp.StatusCode >= 300 { return fmt.Errorf("webhook: status %d", resp.StatusCode) }
+    return nil
+}
+```
+
+Wire it in `internal/app/app.go` inside `newNotify`, registering it when its
+config is present:
+
+```go
+func newNotify(cfg config.Config) *notify.Dispatcher {
+    d := notify.NewDispatcher()
+    if cfg.SlackWebhookURL != "" {
+        d.Register(slack.New(cfg.SlackWebhookURL))
+    }
+    if cfg.WebhookURL != "" {
+        d.Register(webhook.New(cfg.WebhookURL))
+    }
+    return d
+}
+```
+
+Notifiers should return promptly and tolerate being called concurrently. The
+dispatcher bounds each call with a timeout and logs failures — a broken sink
+never fails the operation that produced the event. See
+[notifications](notifications.md) for the event model.
 
 ## Conventions
 

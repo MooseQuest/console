@@ -77,6 +77,10 @@ Providers are pluggable. Beyond the built-in `http` provider, Console ships a **
 
 A **snapshot** aggregates the latest check per component into one overall health state (worst-wins; a not-yet-checked component never masks a real outage).
 
+### Notifications
+
+Console emits **events** on meaningful changes — a component going **down**, **degraded**, or **recovered**, and any **flag change** — and fans them out to pluggable **notifiers**. The built-in **Slack** notifier posts to an Incoming Webhook (no bot token needed): set `CONSOLE_SLACK_WEBHOOK_URL` and you'll get alerts when a monitored service breaks or a flag is toggled. Adding a webhook or email notifier is just another `notify.Notifier` implementation.
+
 ## CLI
 
 ```text
@@ -144,6 +148,7 @@ All configuration is via environment variables (CLI flags override per-command):
 | `CONSOLE_MODEL` | provider default | LLM model override |
 | `ANTHROPIC_API_KEY` | — | API key for the Anthropic provider |
 | `CLOUDFLARE_API_TOKEN` | — | Default token for the Cloudflare Workers status provider |
+| `CONSOLE_SLACK_WEBHOOK_URL` | — | Slack Incoming Webhook for notifications (enables Slack alerts) |
 | `CONSOLE_STORE_PLUGIN` | — | Path to an out-of-process storage plugin (e.g. `console-plugin-postgres`); replaces built-in SQLite |
 
 ### Plugins
@@ -186,6 +191,7 @@ A full docs site lives in [`docs/`](docs/) (served via GitHub Pages from `docs/i
 - [Getting started](docs/getting-started.md)
 - [Feature flags](docs/flags.md)
 - [Status monitoring](docs/status.md)
+- [Notifications](docs/notifications.md)
 - [Onboarding (Human + AI-Assisted)](docs/onboarding.md)
 - [HTTP API reference](docs/api.md)
 - [Architecture](docs/architecture.md)

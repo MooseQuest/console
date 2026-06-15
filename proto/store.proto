@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package console.plugin.v1;
+
+option go_package = "github.com/moosequest/console/internal/plugin/proto;proto";
+
+// StoreService is the gRPC contract for a Console storage-backend plugin. It
+// mirrors the Go store.Store interface. Not-found and conflict conditions are
+// conveyed via gRPC status codes (NotFound, AlreadyExists) and mapped back to
+// core.ErrNotFound / core.ErrConflict on the host side.
+service StoreService {
+  rpc CreateFlag(Flag) returns (Empty);
+  rpc GetFlag(Key) returns (Flag);
+  rpc ListFlags(Empty) returns (FlagList);
+  rpc UpdateFlag(Flag) returns (Empty);
+  rpc DeleteFlag(Key) returns (Empty);
+
+  rpc CreateComponent(Component) returns (Empty);
+  rpc GetComponent(Key) returns (Component);
+  rpc ListComponents(Empty) returns (ComponentList);
+  rpc UpdateComponent(Component) returns (Empty);
+  rpc DeleteComponent(Key) returns (Empty);
+
+  rpc RecordCheck(Check) returns (Empty);
+  rpc LatestCheck(Key) returns (Check);
+  rpc LatestChecks(Empty) returns (CheckList);
+
+  rpc Ping(Empty) returns (Empty);
+}
+
+message Empty {}
+
+message Key {
+  string key = 1;
+}
+
+message Variant {
+  string key = 1;
+  string value = 2;
+  int32 weight = 3;
+}
+
+message Flag {
+  string key = 1;
+  string description = 2;
+  bool enabled = 3;
+  string scope = 4;
+  int32 rollout = 5;
+  repeated Variant variants = 6;
+  string cohort = 7;
+  string experiment = 8;
+  int64 created_at_unix_nano = 9;
+  int64 updated_at_unix_nano = 10;
+}
+
+message FlagList {
+  repeated Flag flags = 1;
+}
+
+message Component {
+  string key = 1;
+  string name = 2;
+  string description = 3;
+  string provider = 4;
+  map<string, string> config = 5;
+  int64 created_at_unix_nano = 6;
+  int64 updated_at_unix_nano = 7;
+}
+
+message ComponentList {
+  repeated Component components = 1;
+}
+
+message Check {
+  string component = 1;
+  int32 state = 2;
+  string message = 3;
+  int64 latency_nanos = 4;
+  int64 checked_at_unix_nano = 5;
+}
+
+message CheckList {
+  repeated Check checks = 1;
+}

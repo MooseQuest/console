@@ -69,9 +69,9 @@ func TestCheck_StateMapping(t *testing.T) {
 			if got.Component != "api" {
 				t.Errorf("component = %q, want api", got.Component)
 			}
-			if got.Latency <= 0 {
-				t.Errorf("expected latency to be populated")
-			}
+			// Note: latency is measured but not asserted > 0 — a sub-tick
+			// in-process call can legitimately round to 0 on coarse-resolution
+			// clocks (e.g. Windows CI).
 		})
 	}
 }

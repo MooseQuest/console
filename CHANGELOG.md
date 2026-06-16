@@ -4,6 +4,32 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [0.2.0] - 2026-06-16
+
+Six new plugins, a cross-platform developer guide, and a support contact.
+
+### Plugins
+
+- **Status providers** — `console-plugin-heroku` (`heroku`; maps dyno state) and
+  `console-plugin-sentry` (`sentry`; maps a project's unresolved-issue count),
+  both selected via `CONSOLE_STATUS_PLUGINS`.
+- **Notifiers** — `console-plugin-webhook` (POSTs each event as JSON, with an
+  optional `X-Webhook-Secret`) and `console-plugin-email` (SMTP), both selected
+  via `CONSOLE_NOTIFY_PLUGINS`.
+- **LLM providers** — `console-plugin-openai` (GPT; default model `gpt-4o-mini`)
+  and `console-plugin-ollama` (local, no API key; default model `llama3.1`),
+  selected via `CONSOLE_LLM_PLUGIN`.
+
+The plugin catalog now spans ten binaries across all four seams; see
+[docs/plugins-architecture.md](docs/plugins-architecture.md).
+
+### Project
+
+- **Developer guide** — `docs/development.md` covers building, running with
+  plugins, testing, and cross-compiling on **macOS, Linux, and Windows**.
+- **Support contact** — questions and security reports go to
+  **support@moosequest.net** (see `SECURITY.md`).
+
 ## [0.1.0] - 2026-06-16
 
 First release: a modular, self-hostable control plane for feature flags and
@@ -47,4 +73,5 @@ Host↔plugin compatibility is governed by the go-plugin handshake
 - Licensed under **AGPL-3.0** with a contributor CLA.
 - Documentation site under `docs/` (GitHub Pages).
 
+[0.2.0]: https://github.com/MooseQuest/console/releases/tag/v0.2.0
 [0.1.0]: https://github.com/MooseQuest/console/releases/tag/v0.1.0

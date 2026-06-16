@@ -73,13 +73,13 @@ A **component** is a monitored part of your app (an API, a worker, a database), 
 - any other HTTP response → **degraded**
 - connection error / timeout → **down**
 
-Providers are pluggable. Beyond the built-in `http` provider, the **`console-plugin-cloudflare`** plugin adds a `cloudflare-workers` provider that reads a Worker's recent invocation analytics (Cloudflare GraphQL API) and maps its error rate to operational/degraded/down — config keys `account_id`, `worker`, optional `api_token` (falls back to `CLOUDFLARE_API_TOKEN`), `window`, `degraded_pct`, `down_pct`.
+Providers are pluggable. Beyond the built-in `http` provider, status plugins add named providers: **`console-plugin-cloudflare`** (`cloudflare-workers` — Worker error rate from the Cloudflare GraphQL API), **`console-plugin-heroku`** (`heroku` — dyno state), and **`console-plugin-sentry`** (`sentry` — unresolved-issue count), each mapping to operational/degraded/down.
 
 A **snapshot** aggregates the latest check per component into one overall health state (worst-wins; a not-yet-checked component never masks a real outage).
 
 ### Notifications
 
-Console emits **events** on meaningful changes — a component going **down**, **degraded**, or **recovered**, and any **flag change** — and fans them out to **notifier plugins**. Slack ships as the `console-plugin-slack` plugin (posts to an Incoming Webhook, no bot token): point `CONSOLE_NOTIFY_PLUGINS` at it and set `CONSOLE_SLACK_WEBHOOK_URL`, and you'll get alerts when a monitored service breaks or a flag is toggled. A webhook or email sink is just another `notify.Notifier` served as a plugin.
+Console emits **events** on meaningful changes — a component going **down**, **degraded**, or **recovered**, and any **flag change** — and fans them out to **notifier plugins** listed in `CONSOLE_NOTIFY_PLUGINS` (you can run several at once). Three ship today: `console-plugin-slack` (Incoming Webhook, no bot token), `console-plugin-webhook` (POSTs each event as JSON, with an optional `X-Webhook-Secret`), and `console-plugin-email` (SMTP). Point `CONSOLE_NOTIFY_PLUGINS` at the sinks you want and you'll get alerts when a monitored service breaks or a flag is toggled.
 
 ## CLI
 
@@ -135,7 +135,7 @@ console onboard -ai -name "Acme" -desc "A Rails store with a Sidekiq worker and 
   -guide acme-setup.md
 ```
 
-Both modes produce a plan (components + flags), let you apply it, and can emit a Markdown setup guide.
+Both modes produce a plan (components + flags), let you apply it, and can emit a Markdown setup guide. AI mode uses whichever LLM plugin `CONSOLE_LLM_PLUGIN` points at — `console-plugin-anthropic` (Claude), `console-plugin-openai` (GPT, default `gpt-4o-mini`), or `console-plugin-ollama` (local, no API key) — one provider at a time.
 
 ## Configuration
 
@@ -153,25 +153,35 @@ Plugin selection (each points at a `console-plugin-*` binary; unset = built-in d
 | Variable | Selects |
 |---|---|
 | `CONSOLE_STORE_PLUGIN` | storage backend (e.g. `console-plugin-postgres`); replaces built-in SQLite |
-| `CONSOLE_STATUS_PLUGINS` | status providers (comma/space list, e.g. `console-plugin-cloudflare`); `http` is built-in |
-| `CONSOLE_NOTIFY_PLUGINS` | notifier sinks (comma/space list, e.g. `console-plugin-slack`) |
-| `CONSOLE_LLM_PLUGIN` | LLM for AI-Assisted onboarding (e.g. `console-plugin-anthropic`); unset = AI mode off |
+| `CONSOLE_STATUS_PLUGINS` | status providers (comma/space list: `console-plugin-cloudflare`, `-heroku`, `-sentry`); `http` is built-in |
+| `CONSOLE_NOTIFY_PLUGINS` | notifier sinks (comma/space list: `console-plugin-slack`, `-webhook`, `-email`) |
+| `CONSOLE_LLM_PLUGIN` | LLM for AI-Assisted onboarding (one of `console-plugin-anthropic`, `-openai`, `-ollama`); unset = AI mode off |
 
-Read by plugins (inherited from the host environment):
+Read by plugins (inherited from the host environment; status providers also read per-component `config`):
 
 | Variable | Used by |
 |---|---|
+| `CONSOLE_DB` (`postgres://` DSN) | `console-plugin-postgres` |
+| `CLOUDFLARE_API_TOKEN` | `console-plugin-cloudflare` (default token) |
+| `HEROKU_API_KEY` | `console-plugin-heroku` (default token) |
+| `SENTRY_AUTH_TOKEN` | `console-plugin-sentry` (default token) |
 | `CONSOLE_SLACK_WEBHOOK_URL` | `console-plugin-slack` |
-| `CLOUDFLARE_API_TOKEN` | `console-plugin-cloudflare` |
+| `CONSOLE_WEBHOOK_URL`, `CONSOLE_WEBHOOK_SECRET` | `console-plugin-webhook` (secret optional) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_TO` | `console-plugin-email` |
 | `ANTHROPIC_API_KEY`, `CONSOLE_MODEL` | `console-plugin-anthropic` |
+| `OPENAI_API_KEY`, `CONSOLE_MODEL` | `console-plugin-openai` (default model `gpt-4o-mini`) |
+| `OLLAMA_HOST`, `CONSOLE_MODEL` | `console-plugin-ollama` (no API key; default model `llama3.1`) |
 
 ### Plugins
 
 Console is extended with **out-of-process plugins** — separate executables the host
 launches and talks to over gRPC (the Terraform model), so you add a capability by
 dropping a binary, with no core recompile. **All four seams** (storage, status,
-notify, LLM) are plugins; the core ships with sensible built-in defaults (SQLite
-storage, the `http` status provider) so it runs with zero plugins.
+notify, LLM) are plugins, and most have several to choose from; the core ships
+with sensible built-in defaults (SQLite storage, the `http` status provider) so
+it runs with zero plugins. Ten ship today: **store** — `postgres`; **status** —
+`cloudflare`, `heroku`, `sentry`; **notify** — `slack`, `webhook`, `email`;
+**llm** — `anthropic`, `openai`, `ollama`.
 
 ```bash
 make build && make plugins                 # ./console + ./bin/console-plugin-*
@@ -180,22 +190,23 @@ make build && make plugins                 # ./console + ./bin/console-plugin-*
 export CONSOLE_STORE_PLUGIN=$PWD/bin/console-plugin-postgres
 export CONSOLE_DB="postgres://user:pass@host:5432/console?sslmode=require"
 
-# Cloudflare Worker health (status provider):
-export CONSOLE_STATUS_PLUGINS=$PWD/bin/console-plugin-cloudflare
-export CLOUDFLARE_API_TOKEN=...
+# Status providers (comma/space list — Cloudflare, Heroku, Sentry):
+export CONSOLE_STATUS_PLUGINS="$PWD/bin/console-plugin-cloudflare,$PWD/bin/console-plugin-heroku,$PWD/bin/console-plugin-sentry"
+export CLOUDFLARE_API_TOKEN=... HEROKU_API_KEY=... SENTRY_AUTH_TOKEN=...
 
-# Slack notifications:
-export CONSOLE_NOTIFY_PLUGINS=$PWD/bin/console-plugin-slack
+# Notifiers (comma/space list — Slack, webhook, email):
+export CONSOLE_NOTIFY_PLUGINS="$PWD/bin/console-plugin-slack,$PWD/bin/console-plugin-webhook,$PWD/bin/console-plugin-email"
 export CONSOLE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 
-# AI-Assisted onboarding (Anthropic):
+# AI-Assisted onboarding (pick one LLM — Anthropic, OpenAI, or Ollama):
 export CONSOLE_LLM_PLUGIN=$PWD/bin/console-plugin-anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
 
 ./console serve
 ```
 
-See [docs/plugins-architecture.md](docs/plugins-architecture.md) for the full design.
+See [docs/plugins-architecture.md](docs/plugins-architecture.md) for the full design,
+and [docs/development.md](docs/development.md) for building and running on macOS, Linux, and Windows.
 
 ## Architecture
 
@@ -227,6 +238,7 @@ A full docs site lives in [`docs/`](docs/) (served via GitHub Pages from `docs/i
 - [Architecture](docs/architecture.md)
 - [Plugin architecture (out-of-process gRPC)](docs/plugins-architecture.md)
 - [Writing plugins](docs/plugins.md)
+- [Developing Console (macOS / Linux / Windows)](docs/development.md)
 
 ## Development
 
@@ -237,9 +249,16 @@ make vet     # go vet
 make fmt     # gofmt
 ```
 
+For building, running with plugins, testing, and cross-compiling on macOS,
+Linux, and Windows, see [docs/development.md](docs/development.md).
+
 ## Contributing
 
 Console is built to be extended — new storage backends, status providers, and LLM providers all plug in behind interfaces. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Support
+
+Questions or security reports: support@moosequest.net.
 
 ## License
 

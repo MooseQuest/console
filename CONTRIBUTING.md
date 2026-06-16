@@ -49,6 +49,10 @@ the binary against a throwaway store.
 CONSOLE_DB="" ./console serve   # nothing persisted between runs
 ```
 
+For step-by-step build, test, run-with-plugins, and cross-compile instructions
+on **macOS, Linux, and Windows** (including the `go`-only commands when `make`
+isn't available), see [docs/development.md](docs/development.md).
+
 ## Repository layout
 
 ```text

@@ -41,6 +41,12 @@ them — see [plugins](plugins.md).
 If a component names a provider that isn't registered, its check is recorded as
 `unknown` with a message — it is still recorded so the snapshot reflects reality.
 
+> Additional providers ship as out-of-process plugins. Alongside
+> `cloudflare-workers` (below), `console-plugin-heroku` adds a `heroku` provider
+> (dyno state) and `console-plugin-sentry` adds a `sentry` provider (unresolved
+> issue count). List them in `CONSOLE_STATUS_PLUGINS`; see
+> [plugin architecture](plugins-architecture.md) for the full catalog.
+
 ## The http provider
 
 The `http` provider issues an HTTP request and maps the response to a health

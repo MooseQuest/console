@@ -49,6 +49,12 @@ green for recovered, indigo for flag changes) titled with the component/flag and
 a short message. When no notifier plugin is configured, no sink is registered and
 the engines skip emission entirely (including the extra read it would cost).
 
+> Slack isn't the only sink. Two more notifiers ship as plugins:
+> `console-plugin-webhook` (POSTs each event as JSON, with an optional
+> `X-Webhook-Secret`) and `console-plugin-email` (SMTP). List the ones you want
+> in `CONSOLE_NOTIFY_PLUGINS` — they run side by side. See
+> [plugin architecture](plugins-architecture.md) for the full catalog and config.
+
 ## How emission works
 
 ```

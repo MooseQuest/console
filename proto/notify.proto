@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package console.plugin.v1;
+
+option go_package = "github.com/moosequest/console/internal/plugin/proto;proto";
+
+// NotifierService is the gRPC contract for a Console notifier plugin. It mirrors
+// the Go notify.Notifier interface: a sink that delivers a domain Event.
+service NotifierService {
+  rpc Name(NotifyEmpty) returns (NotifierName);
+  rpc Notify(Event) returns (NotifyEmpty);
+}
+
+message NotifyEmpty {}
+
+message NotifierName {
+  string name = 1;
+}
+
+// Event mirrors core.Event.
+message Event {
+  string type = 1;
+  string title = 2;
+  string message = 3;
+  string component = 4;
+  string flag = 5;
+  int32 from = 6;
+  int32 to = 7;
+  int64 at_unix_nano = 8;
+}

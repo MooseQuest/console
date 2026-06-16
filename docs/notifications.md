@@ -30,19 +30,23 @@ check (`unknown → operational`) stays quiet, and a steady state never re-alert
 Each event carries a `Severity()` hint (`critical` / `warning` / `good` /
 `info`) that notifiers use for things like message color.
 
-## The Slack notifier
+## The Slack notifier plugin
 
-The built-in Slack notifier posts to an **Incoming Webhook** — no bot token or
-OAuth scopes, just the URL. Enable it by setting:
+Slack ships as an **out-of-process plugin** (`console-plugin-slack`) — see
+[plugin architecture](plugins-architecture.md). It posts to a Slack **Incoming
+Webhook** (no bot token or OAuth scopes, just the URL). Point the host at the
+plugin and give the plugin its webhook via the environment it inherits:
 
 ```bash
+make build && make plugins        # -> ./bin/console-plugin-slack
+export CONSOLE_NOTIFY_PLUGINS=$PWD/bin/console-plugin-slack
 export CONSOLE_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../xxxx
-console serve
+./console serve
 ```
 
 Each event becomes a colored Slack attachment (red for down, amber for degraded,
 green for recovered, indigo for flag changes) titled with the component/flag and
-a short message. When no webhook is configured, no notifier is registered and
+a short message. When no notifier plugin is configured, no sink is registered and
 the engines skip emission entirely (including the extra read it would cost).
 
 ## How emission works
@@ -62,8 +66,9 @@ is configured.
 
 ## Writing a notifier
 
-Implement `notify.Notifier` and register it on the dispatcher in
-`internal/app/app.go`:
+Implement `notify.Notifier`, then serve it as an out-of-process plugin (the
+Slack plugin is the template — `cmd/console-plugin-slack` + the notifier adapters
+in `internal/plugin`):
 
 ```go
 type Notifier interface {
@@ -73,5 +78,6 @@ type Notifier interface {
 ```
 
 A webhook notifier, for example, would `POST` the event as JSON; an email
-notifier would format it as a message body. See
-[plugins](plugins.md) for the full plugin-seam overview.
+notifier would format it as a message body. Each is built into its own
+`console-plugin-<name>` binary and listed in `CONSOLE_NOTIFY_PLUGINS`. See
+[plugin architecture](plugins-architecture.md) for the full design.

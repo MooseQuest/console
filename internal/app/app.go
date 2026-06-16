@@ -12,7 +12,6 @@ import (
 	"github.com/moosequest/console/internal/flags"
 	"github.com/moosequest/console/internal/llm"
 	"github.com/moosequest/console/internal/notify"
-	"github.com/moosequest/console/internal/notify/slack"
 	"github.com/moosequest/console/internal/plugin"
 	"github.com/moosequest/console/internal/status"
 	"github.com/moosequest/console/internal/status/cloudflare"
@@ -30,14 +29,18 @@ type App struct {
 	// configured; callers must treat AI-Assisted mode as unavailable in that
 	// case and fall back to Human mode.
 	LLM llm.Provider
-	// Notify fans status transitions and flag changes out to registered sinks
-	// (e.g. Slack). Always non-nil; it may simply have no notifiers registered.
+	// Notify fans status transitions and flag changes out to registered sinks.
+	// Always non-nil; sinks are out-of-process notifier plugins (e.g. Slack).
 	Notify *notify.Dispatcher
+
+	// closers tears down loaded plugin subprocesses (notifiers) on Close.
+	closers []func() error
 }
 
 // New assembles an App from cfg. It opens the storage backend, constructs the
-// flag and status engines (registering the built-in HTTP status provider), and
-// selects the LLM provider when one is configured. The caller owns Close.
+// flag and status engines (registering the built-in HTTP status provider),
+// loads notifier plugins, and selects the LLM provider when one is configured.
+// The caller owns Close.
 func New(ctx context.Context, cfg config.Config) (*App, error) {
 	st, err := openStore(ctx, cfg)
 	if err != nil {
@@ -53,7 +56,12 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 			cloudflare.New(cloudflare.WithToken(cfg.CloudflareToken)),
 		),
 		LLM:    newLLM(cfg),
-		Notify: newNotify(cfg),
+		Notify: notify.NewDispatcher(),
+	}
+
+	if err := a.loadNotifiers(cfg); err != nil {
+		_ = a.Close()
+		return nil, err
 	}
 
 	// Wire the engines to the dispatcher only when something is listening, so
@@ -76,14 +84,18 @@ func openStore(ctx context.Context, cfg config.Config) (store.Store, error) {
 	return sqlite.Open(ctx, cfg.DB)
 }
 
-// newNotify builds the notification dispatcher, registering sinks that are
-// configured. An empty dispatcher (no sinks) is returned otherwise.
-func newNotify(cfg config.Config) *notify.Dispatcher {
-	d := notify.NewDispatcher()
-	if cfg.SlackWebhookURL != "" {
-		d.Register(slack.New(cfg.SlackWebhookURL))
+// loadNotifiers launches each configured notifier plugin and registers it as a
+// sink, recording a closer so the subprocess is stopped on Close.
+func (a *App) loadNotifiers(cfg config.Config) error {
+	for _, path := range cfg.NotifyPlugins {
+		n, closeFn, err := plugin.LoadNotifier(path)
+		if err != nil {
+			return fmt.Errorf("load notifier plugin: %w", err)
+		}
+		a.closers = append(a.closers, closeFn)
+		a.Notify.Register(n)
 	}
-	return d
+	return nil
 }
 
 // newLLM builds the configured LLM provider, or returns nil to disable
@@ -101,8 +113,13 @@ func newLLM(cfg config.Config) llm.Provider {
 	}
 }
 
-// Close releases the App's resources (currently the store).
+// Close releases the App's resources: it stops any loaded plugin subprocesses
+// (notifiers) and closes the store (which, for a store plugin, stops that
+// subprocess too).
 func (a *App) Close() error {
+	for _, c := range a.closers {
+		_ = c()
+	}
 	if a.Store != nil {
 		return a.Store.Close()
 	}

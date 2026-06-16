@@ -24,18 +24,25 @@ func (p *pluginStore) Close() error {
 	return nil
 }
 
+// clientConfig builds the go-plugin client config shared by every seam loader:
+// the common handshake, gRPC-only, the host environment inherited by the
+// subprocess, and a quiet logger.
+func clientConfig(plugins goplugin.PluginSet, path string) *goplugin.ClientConfig {
+	return &goplugin.ClientConfig{
+		HandshakeConfig:  Handshake,
+		Plugins:          plugins,
+		Cmd:              exec.Command(path),
+		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolGRPC},
+		Logger:           hclog.New(&hclog.LoggerOptions{Name: "console-plugin", Level: hclog.Warn, Output: os.Stderr}),
+	}
+}
+
 // LoadStore launches the store-plugin executable at path and returns a
 // store.Store backed by it over gRPC. Closing the returned store stops the
 // subprocess. The plugin inherits the host's environment (so configuration such
 // as CONSOLE_DB reaches it).
 func LoadStore(path string) (store.Store, error) {
-	client := goplugin.NewClient(&goplugin.ClientConfig{
-		HandshakeConfig:  Handshake,
-		Plugins:          PluginSet(nil),
-		Cmd:              exec.Command(path),
-		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolGRPC},
-		Logger:           hclog.New(&hclog.LoggerOptions{Name: "console-plugin", Level: hclog.Warn, Output: os.Stderr}),
-	})
+	client := goplugin.NewClient(clientConfig(PluginSet(nil), path))
 
 	rpc, err := client.Client()
 	if err != nil {

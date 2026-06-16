@@ -21,9 +21,9 @@ another process.
 
 | Seam | Interface | Status |
 |---|---|---|
-| Storage | `store.Store` | **out-of-process** (this release) — e.g. `console-plugin-postgres` |
+| Storage | `store.Store` | **out-of-process** — e.g. `console-plugin-postgres` |
+| Notify | `notify.Notifier` | **out-of-process** — e.g. `console-plugin-slack` |
 | Status | `status.Provider` | converting to the same model |
-| Notify | `notify.Notifier` | converting to the same model |
 | LLM | `llm.Provider` | converting to the same model |
 
 SQLite stays **built into the core** as the zero-dependency default; everything
@@ -45,6 +45,24 @@ export CONSOLE_DB="postgres://user:pass@host:5432/console?sslmode=require"
 The host launches the plugin, performs the handshake, and uses it as the store
 over gRPC. The plugin inherits the host's environment, so it reads `CONSOLE_DB`
 itself. Without `CONSOLE_STORE_PLUGIN`, the host uses built-in SQLite.
+
+## Using the Slack notifier plugin
+
+Notifier plugins are listed in `CONSOLE_NOTIFY_PLUGINS` (comma/space-separated);
+the host launches each and registers it as a sink. The Slack plugin reads its
+webhook URL from the environment it inherits:
+
+```bash
+make build && make plugins        # -> ./bin/console-plugin-slack
+export CONSOLE_NOTIFY_PLUGINS=$PWD/bin/console-plugin-slack
+export CONSOLE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+
+./console serve
+```
+
+Now a component going down or a flag change is delivered to Slack by the plugin
+subprocess. The `notify.Notifier` seam and the engines' event emission stay in
+the core; only the sink is out-of-process.
 
 ## How it fits together
 

@@ -79,7 +79,7 @@ A **snapshot** aggregates the latest check per component into one overall health
 
 ### Notifications
 
-Console emits **events** on meaningful changes — a component going **down**, **degraded**, or **recovered**, and any **flag change** — and fans them out to pluggable **notifiers**. The built-in **Slack** notifier posts to an Incoming Webhook (no bot token needed): set `CONSOLE_SLACK_WEBHOOK_URL` and you'll get alerts when a monitored service breaks or a flag is toggled. Adding a webhook or email notifier is just another `notify.Notifier` implementation.
+Console emits **events** on meaningful changes — a component going **down**, **degraded**, or **recovered**, and any **flag change** — and fans them out to **notifier plugins**. Slack ships as the `console-plugin-slack` plugin (posts to an Incoming Webhook, no bot token): point `CONSOLE_NOTIFY_PLUGINS` at it and set `CONSOLE_SLACK_WEBHOOK_URL`, and you'll get alerts when a monitored service breaks or a flag is toggled. A webhook or email sink is just another `notify.Notifier` served as a plugin.
 
 ## CLI
 
@@ -148,8 +148,9 @@ All configuration is via environment variables (CLI flags override per-command):
 | `CONSOLE_MODEL` | provider default | LLM model override |
 | `ANTHROPIC_API_KEY` | — | API key for the Anthropic provider |
 | `CLOUDFLARE_API_TOKEN` | — | Default token for the Cloudflare Workers status provider |
-| `CONSOLE_SLACK_WEBHOOK_URL` | — | Slack Incoming Webhook for notifications (enables Slack alerts) |
 | `CONSOLE_STORE_PLUGIN` | — | Path to an out-of-process storage plugin (e.g. `console-plugin-postgres`); replaces built-in SQLite |
+| `CONSOLE_NOTIFY_PLUGINS` | — | Comma/space-separated paths to notifier plugins (e.g. `console-plugin-slack`) |
+| `CONSOLE_SLACK_WEBHOOK_URL` | — | Slack Incoming Webhook URL, read by the `console-plugin-slack` plugin |
 
 ### Plugins
 
@@ -159,9 +160,16 @@ dropping a binary, with no core recompile. SQLite is built in as the default; ot
 backends ship as plugins. For example, to use Postgres:
 
 ```bash
-make build && make plugins                 # ./console + ./bin/console-plugin-postgres
+make build && make plugins                 # ./console + ./bin/console-plugin-*
+
+# Postgres store backend:
 export CONSOLE_STORE_PLUGIN=$PWD/bin/console-plugin-postgres
 export CONSOLE_DB="postgres://user:pass@host:5432/console?sslmode=require"
+
+# Slack notifications:
+export CONSOLE_NOTIFY_PLUGINS=$PWD/bin/console-plugin-slack
+export CONSOLE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+
 ./console serve
 ```
 

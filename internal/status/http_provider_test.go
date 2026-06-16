@@ -33,9 +33,8 @@ func TestHTTPProviderOperational(t *testing.T) {
 	if check.Component != "api" {
 		t.Fatalf("Component = %q, want %q", check.Component, "api")
 	}
-	if check.Latency <= 0 {
-		t.Fatalf("Latency = %v, want > 0", check.Latency)
-	}
+	// Latency is measured but not asserted > 0 — a sub-tick call can round to 0
+	// on coarse-resolution clocks (e.g. Windows CI).
 	if check.CheckedAt.IsZero() {
 		t.Fatal("CheckedAt is zero")
 	}
@@ -53,9 +52,6 @@ func TestHTTPProviderDegradedOn500(t *testing.T) {
 	check := p.Check(context.Background(), comp)
 	if check.State != core.StateDegraded {
 		t.Fatalf("State = %v, want Degraded", check.State)
-	}
-	if check.Latency <= 0 {
-		t.Fatalf("Latency = %v, want > 0", check.Latency)
 	}
 }
 

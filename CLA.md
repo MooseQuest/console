@@ -84,7 +84,7 @@ discretion.
 
 If You are contributing on behalf of a company, the company should execute a
 **Corporate CLA** designating which individuals are authorized to contribute on
-its behalf. Contact MooseQuest to arrange a Corporate CLA. (A corporate template
+its behalf. Email support@moosequest.net to arrange a Corporate CLA. (A corporate template
 will be added once the individual CLA clears legal review.)
 
 ## 8. How to sign
@@ -101,4 +101,4 @@ will record acceptance. (We expect to replace this manual step with a CLA bot.)
 
 ---
 
-*Questions about this agreement? Open an issue or contact MooseQuest LLC.*
+*Questions about this agreement? Open an issue or email support@moosequest.net.*

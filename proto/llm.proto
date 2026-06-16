@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package console.plugin.v1;
+
+option go_package = "github.com/moosequest/console/internal/plugin/proto;proto";
+
+// LLMService is the gRPC contract for a Console LLM-provider plugin. It mirrors
+// the Go llm.Provider interface: a single text completion.
+service LLMService {
+  rpc Name(LLMEmpty) returns (LLMName);
+  rpc Complete(CompleteRequest) returns (CompleteResponse);
+}
+
+message LLMEmpty {}
+
+message LLMName {
+  string name = 1;
+}
+
+message LLMMessage {
+  string role = 1;
+  string text = 2;
+}
+
+message CompleteRequest {
+  string system = 1;
+  repeated LLMMessage messages = 2;
+  int32 max_tokens = 3;
+  string model = 4;
+}
+
+message CompleteResponse {
+  string text = 1;
+}

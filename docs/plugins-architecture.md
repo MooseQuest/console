@@ -19,15 +19,21 @@ another process.
 
 ## Seams
 
-| Seam | Interface | Status |
-|---|---|---|
-| Storage | `store.Store` | **out-of-process** — e.g. `console-plugin-postgres` |
-| Notify | `notify.Notifier` | **out-of-process** — e.g. `console-plugin-slack` |
-| Status | `status.Provider` | converting to the same model |
-| LLM | `llm.Provider` | converting to the same model |
+All four seams are out-of-process plugins:
 
-SQLite stays **built into the core** as the zero-dependency default; everything
-else is a plugin.
+| Seam | Interface | Plugin | Selected by |
+|---|---|---|---|
+| Storage | `store.Store` | `console-plugin-postgres` | `CONSOLE_STORE_PLUGIN` |
+| Notify | `notify.Notifier` | `console-plugin-slack` | `CONSOLE_NOTIFY_PLUGINS` |
+| Status | `status.Provider` | `console-plugin-cloudflare` | `CONSOLE_STATUS_PLUGINS` |
+| LLM | `llm.Provider` | `console-plugin-anthropic` | `CONSOLE_LLM_PLUGIN` |
+
+The **defaults stay built into the core** so it runs with zero plugins: SQLite
+storage and the `http` status provider. Storage takes one plugin (it replaces
+SQLite); notify and status take a list (each plugin is registered as a sink /
+named provider); LLM takes one. Every plugin inherits the host's environment, so
+provider-specific config (`CONSOLE_DB`, `CLOUDFLARE_API_TOKEN`,
+`CONSOLE_SLACK_WEBHOOK_URL`, `ANTHROPIC_API_KEY`, `CONSOLE_MODEL`) reaches it.
 
 ## Using the Postgres store plugin
 
@@ -63,6 +69,26 @@ export CONSOLE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 Now a component going down or a flag change is delivered to Slack by the plugin
 subprocess. The `notify.Notifier` seam and the engines' event emission stay in
 the core; only the sink is out-of-process.
+
+## Using the status and LLM plugins
+
+```bash
+make build && make plugins   # -> ./bin/console-plugin-cloudflare, -anthropic
+
+# Cloudflare Worker health as a status provider:
+export CONSOLE_STATUS_PLUGINS=$PWD/bin/console-plugin-cloudflare
+export CLOUDFLARE_API_TOKEN=...      # read by the plugin
+# then add a component with provider "cloudflare-workers"
+
+# AI-Assisted onboarding via Anthropic:
+export CONSOLE_LLM_PLUGIN=$PWD/bin/console-plugin-anthropic
+export ANTHROPIC_API_KEY=sk-ant-...  # read by the plugin (it exits if unset)
+```
+
+A status plugin registers itself as a named provider (its `Name()`), so a
+component's `provider` field routes to it; the built-in `http` provider needs no
+plugin. The LLM plugin, when set, powers AI-Assisted onboarding; with none, AI
+mode is simply unavailable and Human mode still works.
 
 ## How it fits together
 

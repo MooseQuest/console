@@ -14,7 +14,6 @@ import (
 	"github.com/moosequest/console/internal/notify"
 	"github.com/moosequest/console/internal/plugin"
 	"github.com/moosequest/console/internal/status"
-	"github.com/moosequest/console/internal/status/cloudflare"
 	"github.com/moosequest/console/internal/store"
 	"github.com/moosequest/console/internal/store/sqlite"
 )
@@ -39,8 +38,8 @@ type App struct {
 
 // New assembles an App from cfg. It opens the storage backend, constructs the
 // flag and status engines (registering the built-in HTTP status provider),
-// loads notifier plugins, and selects the LLM provider when one is configured.
-// The caller owns Close.
+// loads notifier and status-provider plugins, and selects the LLM provider when
+// one is configured (all out-of-process). The caller owns Close.
 func New(ctx context.Context, cfg config.Config) (*App, error) {
 	st, err := openStore(ctx, cfg)
 	if err != nil {
@@ -51,15 +50,11 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Config: cfg,
 		Store:  st,
 		Flags:  flags.New(st),
-		Status: status.New(st, st,
-			&status.HTTPProvider{},
-			cloudflare.New(cloudflare.WithToken(cfg.CloudflareToken)),
-		),
-		LLM:    newLLM(cfg),
+		Status: status.New(st, st, &status.HTTPProvider{}),
 		Notify: notify.NewDispatcher(),
 	}
 
-	if err := a.loadNotifiers(cfg); err != nil {
+	if err := a.loadPlugins(cfg); err != nil {
 		_ = a.Close()
 		return nil, err
 	}
@@ -84,9 +79,11 @@ func openStore(ctx context.Context, cfg config.Config) (store.Store, error) {
 	return sqlite.Open(ctx, cfg.DB)
 }
 
-// loadNotifiers launches each configured notifier plugin and registers it as a
-// sink, recording a closer so the subprocess is stopped on Close.
-func (a *App) loadNotifiers(cfg config.Config) error {
+// loadPlugins launches every configured out-of-process seam plugin — notifier
+// sinks, status providers, and the LLM provider — registering each and
+// recording a closer so its subprocess is stopped on Close. On any failure it
+// returns the error; New calls a.Close to tear down whatever was already loaded.
+func (a *App) loadPlugins(cfg config.Config) error {
 	for _, path := range cfg.NotifyPlugins {
 		n, closeFn, err := plugin.LoadNotifier(path)
 		if err != nil {
@@ -95,22 +92,28 @@ func (a *App) loadNotifiers(cfg config.Config) error {
 		a.closers = append(a.closers, closeFn)
 		a.Notify.Register(n)
 	}
-	return nil
-}
 
-// newLLM builds the configured LLM provider, or returns nil to disable
-// AI-Assisted mode. Unknown provider names also yield nil.
-func newLLM(cfg config.Config) llm.Provider {
-	switch cfg.LLMProvider {
-	case "anthropic":
-		var opts []llm.Option
-		if cfg.Model != "" {
-			opts = append(opts, llm.WithModel(cfg.Model))
+	for _, path := range cfg.StatusPlugins {
+		p, closeFn, err := plugin.LoadStatusProvider(path)
+		if err != nil {
+			return fmt.Errorf("load status plugin: %w", err)
 		}
-		return llm.NewAnthropic(cfg.AnthropicKey, opts...)
-	default:
-		return nil
+		a.closers = append(a.closers, closeFn)
+		a.Status.Register(p)
 	}
+
+	if cfg.LLMPlugin != "" {
+		p, closeFn, err := plugin.LoadLLM(cfg.LLMPlugin)
+		if err != nil {
+			return fmt.Errorf("load llm plugin: %w", err)
+		}
+		a.closers = append(a.closers, closeFn)
+		a.LLM = p
+	} else {
+		a.LLM = nil
+	}
+
+	return nil
 }
 
 // Close releases the App's resources: it stops any loaded plugin subprocesses

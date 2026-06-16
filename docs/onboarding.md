@@ -54,7 +54,12 @@ same over a pipe.
 
 ## AI-Assisted mode
 
+AI mode needs an LLM plugin (e.g. `console-plugin-anthropic`) selected via
+`CONSOLE_LLM_PLUGIN`; the plugin reads `ANTHROPIC_API_KEY` from the environment.
+With no LLM plugin configured, AI mode is unavailable and Human mode still works.
+
 ```bash
+export CONSOLE_LLM_PLUGIN=$PWD/bin/console-plugin-anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
 console onboard -ai \
   -name "Acme" \

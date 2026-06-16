@@ -73,7 +73,7 @@ A **component** is a monitored part of your app (an API, a worker, a database), 
 - any other HTTP response → **degraded**
 - connection error / timeout → **down**
 
-Providers are pluggable. Beyond the built-in `http` provider, Console ships a **`cloudflare-workers`** provider that reads a Worker's recent invocation analytics (Cloudflare GraphQL API) and maps its error rate to operational/degraded/down — config keys `account_id`, `worker`, optional `api_token` (falls back to `CLOUDFLARE_API_TOKEN`), `window`, `degraded_pct`, `down_pct`.
+Providers are pluggable. Beyond the built-in `http` provider, the **`console-plugin-cloudflare`** plugin adds a `cloudflare-workers` provider that reads a Worker's recent invocation analytics (Cloudflare GraphQL API) and maps its error rate to operational/degraded/down — config keys `account_id`, `worker`, optional `api_token` (falls back to `CLOUDFLARE_API_TOKEN`), `window`, `degraded_pct`, `down_pct`.
 
 A **snapshot** aggregates the latest check per component into one overall health state (worst-wins; a not-yet-checked component never masks a real outage).
 
@@ -128,7 +128,8 @@ curl -X POST localhost:8080/api/flags/new-dashboard/evaluate \
 # Human mode — interactive wizard
 console onboard
 
-# AI-Assisted mode — Claude drafts the plan (needs ANTHROPIC_API_KEY)
+# AI-Assisted mode — Claude drafts the plan (needs the anthropic LLM plugin)
+export CONSOLE_LLM_PLUGIN=$PWD/bin/console-plugin-anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
 console onboard -ai -name "Acme" -desc "A Rails store with a Sidekiq worker and a Postgres DB" \
   -guide acme-setup.md
@@ -140,24 +141,37 @@ Both modes produce a plan (components + flags), let you apply it, and can emit a
 
 All configuration is via environment variables (CLI flags override per-command):
 
+Core:
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `CONSOLE_ADDR` | `:8080` | HTTP listen address |
 | `CONSOLE_DB` | `console.db` | SQLite path / DSN (`""` for in-memory) |
-| `CONSOLE_LLM_PROVIDER` | `anthropic` | LLM provider for AI mode (`""` to disable) |
-| `CONSOLE_MODEL` | provider default | LLM model override |
-| `ANTHROPIC_API_KEY` | — | API key for the Anthropic provider |
-| `CLOUDFLARE_API_TOKEN` | — | Default token for the Cloudflare Workers status provider |
-| `CONSOLE_STORE_PLUGIN` | — | Path to an out-of-process storage plugin (e.g. `console-plugin-postgres`); replaces built-in SQLite |
-| `CONSOLE_NOTIFY_PLUGINS` | — | Comma/space-separated paths to notifier plugins (e.g. `console-plugin-slack`) |
-| `CONSOLE_SLACK_WEBHOOK_URL` | — | Slack Incoming Webhook URL, read by the `console-plugin-slack` plugin |
+
+Plugin selection (each points at a `console-plugin-*` binary; unset = built-in default):
+
+| Variable | Selects |
+|---|---|
+| `CONSOLE_STORE_PLUGIN` | storage backend (e.g. `console-plugin-postgres`); replaces built-in SQLite |
+| `CONSOLE_STATUS_PLUGINS` | status providers (comma/space list, e.g. `console-plugin-cloudflare`); `http` is built-in |
+| `CONSOLE_NOTIFY_PLUGINS` | notifier sinks (comma/space list, e.g. `console-plugin-slack`) |
+| `CONSOLE_LLM_PLUGIN` | LLM for AI-Assisted onboarding (e.g. `console-plugin-anthropic`); unset = AI mode off |
+
+Read by plugins (inherited from the host environment):
+
+| Variable | Used by |
+|---|---|
+| `CONSOLE_SLACK_WEBHOOK_URL` | `console-plugin-slack` |
+| `CLOUDFLARE_API_TOKEN` | `console-plugin-cloudflare` |
+| `ANTHROPIC_API_KEY`, `CONSOLE_MODEL` | `console-plugin-anthropic` |
 
 ### Plugins
 
 Console is extended with **out-of-process plugins** — separate executables the host
 launches and talks to over gRPC (the Terraform model), so you add a capability by
-dropping a binary, with no core recompile. SQLite is built in as the default; other
-backends ship as plugins. For example, to use Postgres:
+dropping a binary, with no core recompile. **All four seams** (storage, status,
+notify, LLM) are plugins; the core ships with sensible built-in defaults (SQLite
+storage, the `http` status provider) so it runs with zero plugins.
 
 ```bash
 make build && make plugins                 # ./console + ./bin/console-plugin-*
@@ -166,9 +180,17 @@ make build && make plugins                 # ./console + ./bin/console-plugin-*
 export CONSOLE_STORE_PLUGIN=$PWD/bin/console-plugin-postgres
 export CONSOLE_DB="postgres://user:pass@host:5432/console?sslmode=require"
 
+# Cloudflare Worker health (status provider):
+export CONSOLE_STATUS_PLUGINS=$PWD/bin/console-plugin-cloudflare
+export CLOUDFLARE_API_TOKEN=...
+
 # Slack notifications:
 export CONSOLE_NOTIFY_PLUGINS=$PWD/bin/console-plugin-slack
 export CONSOLE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+
+# AI-Assisted onboarding (Anthropic):
+export CONSOLE_LLM_PLUGIN=$PWD/bin/console-plugin-anthropic
+export ANTHROPIC_API_KEY=sk-ant-...
 
 ./console serve
 ```

@@ -1,4 +1,4 @@
-package llm
+package anthropic
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/moosequest/console/internal/llm"
 )
 
 func TestAnthropicComplete_Success(t *testing.T) {
@@ -33,15 +35,15 @@ func TestAnthropicComplete_Success(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	a := NewAnthropic("test-key", WithBaseURL(srv.URL), WithModel("claude-opus-4-8"))
+	a := New("test-key", WithBaseURL(srv.URL), WithModel("claude-opus-4-8"))
 
-	out, err := a.Complete(context.Background(), Request{
+	out, err := a.Complete(context.Background(), llm.Request{
 		System:    "You are terse.",
 		MaxTokens: 256,
-		Messages: []Message{
-			{Role: RoleUser, Text: "Hi"},
-			{Role: RoleAssistant, Text: "Hello"},
-			{Role: RoleUser, Text: "Continue"},
+		Messages: []llm.Message{
+			{Role: llm.RoleUser, Text: "Hi"},
+			{Role: llm.RoleAssistant, Text: "Hello"},
+			{Role: llm.RoleUser, Text: "Continue"},
 		},
 	})
 	if err != nil {
@@ -106,9 +108,9 @@ func TestAnthropicComplete_DefaultModelAndMaxTokens(t *testing.T) {
 	defer srv.Close()
 
 	// No WithModel, no MaxTokens in the request -> provider defaults apply.
-	a := NewAnthropic("k", WithBaseURL(srv.URL))
-	if _, err := a.Complete(context.Background(), Request{
-		Messages: []Message{{Role: RoleUser, Text: "x"}},
+	a := New("k", WithBaseURL(srv.URL))
+	if _, err := a.Complete(context.Background(), llm.Request{
+		Messages: []llm.Message{{Role: llm.RoleUser, Text: "x"}},
 	}); err != nil {
 		t.Fatalf("Complete: %v", err)
 	}
@@ -132,9 +134,9 @@ func TestAnthropicComplete_Non2xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	a := NewAnthropic("k", WithBaseURL(srv.URL))
-	_, err := a.Complete(context.Background(), Request{
-		Messages: []Message{{Role: RoleUser, Text: "x"}},
+	a := New("k", WithBaseURL(srv.URL))
+	_, err := a.Complete(context.Background(), llm.Request{
+		Messages: []llm.Message{{Role: llm.RoleUser, Text: "x"}},
 	})
 	if err == nil {
 		t.Fatal("expected error on non-2xx response, got nil")
@@ -159,13 +161,13 @@ func TestAnthropicComplete_EmptyAPIKeyNoNetwork(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "") // ensure the env fallback can't supply a key
 
 	rt := &recordingTransport{}
-	a := NewAnthropic("",
+	a := New("",
 		WithBaseURL("http://127.0.0.1:0"), // would fail if dialed
 		WithHTTPClient(&http.Client{Transport: rt}),
 	)
 
-	_, err := a.Complete(context.Background(), Request{
-		Messages: []Message{{Role: RoleUser, Text: "x"}},
+	_, err := a.Complete(context.Background(), llm.Request{
+		Messages: []llm.Message{{Role: llm.RoleUser, Text: "x"}},
 	})
 	if err == nil {
 		t.Fatal("expected error for empty API key, got nil")
@@ -180,7 +182,7 @@ func TestAnthropicComplete_EmptyAPIKeyNoNetwork(t *testing.T) {
 
 func TestNewAnthropicEnvFallback(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "from-env")
-	a := NewAnthropic("")
+	a := New("")
 	if a.APIKey != "from-env" {
 		t.Errorf("APIKey = %q, want from-env", a.APIKey)
 	}

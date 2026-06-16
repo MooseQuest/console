@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package console.plugin.v1;
+
+option go_package = "github.com/moosequest/console/internal/plugin/proto;proto";
+
+// StatusProviderService is the gRPC contract for a Console status-provider
+// plugin. It mirrors the Go status.Provider interface: a named health check.
+service StatusProviderService {
+  rpc Name(StatusEmpty) returns (StatusName);
+  rpc Check(StatusComponent) returns (StatusCheck);
+}
+
+message StatusEmpty {}
+
+message StatusName {
+  string name = 1;
+}
+
+// StatusComponent mirrors the fields of core.Component a provider reads.
+message StatusComponent {
+  string key = 1;
+  string name = 2;
+  string description = 3;
+  string provider = 4;
+  map<string, string> config = 5;
+}
+
+// StatusCheck mirrors core.Check. Provider errors are carried in state/message,
+// not as a gRPC error, matching the in-process contract.
+message StatusCheck {
+  string component = 1;
+  int32 state = 2;
+  string message = 3;
+  int64 latency_nanos = 4;
+  int64 checked_at_unix_nano = 5;
+}

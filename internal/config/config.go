@@ -35,6 +35,16 @@ type Config struct {
 	// (e.g. console-plugin-slack). Each is launched and registered as a sink;
 	// plugins inherit this process's environment (e.g. CONSOLE_SLACK_WEBHOOK_URL).
 	NotifyPlugins []string
+	// StatusPlugins are paths to out-of-process status-provider plugin
+	// executables (e.g. console-plugin-cloudflare). Each is launched and
+	// registered with the status engine; plugins inherit this process's
+	// environment (e.g. CLOUDFLARE_API_TOKEN).
+	StatusPlugins []string
+	// LLMPlugin is the path to an out-of-process LLM provider plugin executable
+	// (e.g. console-plugin-anthropic). When set, it supplies the AI-Assisted
+	// onboarding provider over gRPC; empty disables AI-Assisted mode. The plugin
+	// inherits this process's environment (e.g. ANTHROPIC_API_KEY).
+	LLMPlugin string
 }
 
 // Default returns the baseline configuration before env/flag overrides.
@@ -57,6 +67,8 @@ func Default() Config {
 //	CLOUDFLARE_API_TOKEN  default token for Cloudflare status providers
 //	CONSOLE_STORE_PLUGIN   path to an out-of-process storage-backend plugin
 //	CONSOLE_NOTIFY_PLUGINS comma/space-separated notifier plugin paths
+//	CONSOLE_STATUS_PLUGINS comma/space-separated status-provider plugin paths
+//	CONSOLE_LLM_PLUGIN     path to an out-of-process LLM provider plugin
 func FromEnv() Config {
 	c := Default()
 	if v := os.Getenv("CONSOLE_ADDR"); v != "" {
@@ -75,6 +87,8 @@ func FromEnv() Config {
 	c.CloudflareToken = os.Getenv("CLOUDFLARE_API_TOKEN")
 	c.StorePlugin = os.Getenv("CONSOLE_STORE_PLUGIN")
 	c.NotifyPlugins = splitList(os.Getenv("CONSOLE_NOTIFY_PLUGINS"))
+	c.StatusPlugins = splitList(os.Getenv("CONSOLE_STATUS_PLUGINS"))
+	c.LLMPlugin = os.Getenv("CONSOLE_LLM_PLUGIN")
 	return c
 }
 

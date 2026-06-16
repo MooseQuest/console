@@ -1,4 +1,8 @@
-package llm
+// Package anthropic provides an llm.Provider backed by Anthropic's Claude
+// Messages API. It is a thin hand-written client over net/http; it pulls in no
+// third-party deps and lives out of the core so the console binary does not link
+// it (it ships as the console-plugin-anthropic executable).
+package anthropic
 
 import (
 	"bytes"
@@ -10,6 +14,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/moosequest/console/internal/llm"
 )
 
 // Default configuration for the Anthropic provider.
@@ -20,8 +26,7 @@ const (
 	anthropicVersion        = "2023-06-01"
 )
 
-// Anthropic is a Provider backed by Anthropic's Claude Messages API. It is a
-// thin hand-written client over net/http; it pulls in no third-party deps.
+// Anthropic is an llm.Provider backed by Anthropic's Claude Messages API.
 type Anthropic struct {
 	APIKey  string
 	Model   string
@@ -29,7 +34,7 @@ type Anthropic struct {
 	HTTP    *http.Client
 }
 
-// Option configures an Anthropic provider in NewAnthropic.
+// Option configures an Anthropic provider in New.
 type Option func(*Anthropic)
 
 // WithModel sets the default model id used when a Request does not specify one.
@@ -47,10 +52,10 @@ func WithHTTPClient(c *http.Client) Option {
 	return func(a *Anthropic) { a.HTTP = c }
 }
 
-// NewAnthropic constructs an Anthropic provider. If apiKey is empty, it falls
-// back to the ANTHROPIC_API_KEY environment variable. Defaults: Model
-// "claude-opus-4-8", BaseURL "https://api.anthropic.com", and a 60s HTTP client.
-func NewAnthropic(apiKey string, opts ...Option) *Anthropic {
+// New constructs an Anthropic provider. If apiKey is empty, it falls back to the
+// ANTHROPIC_API_KEY environment variable. Defaults: Model "claude-opus-4-8",
+// BaseURL "https://api.anthropic.com", and a 60s HTTP client.
+func New(apiKey string, opts ...Option) *Anthropic {
 	if apiKey == "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
@@ -93,7 +98,7 @@ type anthropicResponse struct {
 
 // Complete sends a single completion request to the Messages API and returns
 // the concatenated text of the assistant's reply.
-func (a *Anthropic) Complete(ctx context.Context, req Request) (string, error) {
+func (a *Anthropic) Complete(ctx context.Context, req llm.Request) (string, error) {
 	if a.APIKey == "" {
 		return "", fmt.Errorf("anthropic: no API key configured; set ANTHROPIC_API_KEY")
 	}
@@ -164,9 +169,9 @@ func (a *Anthropic) Complete(ctx context.Context, req Request) (string, error) {
 }
 
 // anthropicRole maps an llm.Role to the API's role string.
-func anthropicRole(r Role) string {
+func anthropicRole(r llm.Role) string {
 	switch r {
-	case RoleAssistant:
+	case llm.RoleAssistant:
 		return "assistant"
 	default:
 		return "user"
@@ -184,4 +189,4 @@ func snippet(b []byte) string {
 }
 
 // Ensure Anthropic satisfies the Provider interface.
-var _ Provider = (*Anthropic)(nil)
+var _ llm.Provider = (*Anthropic)(nil)

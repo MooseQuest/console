@@ -83,6 +83,11 @@ Example component using a custom method, expected code, and timeout:
 
 ## The cloudflare-workers provider
 
+> Ships as the out-of-process **`console-plugin-cloudflare`** plugin — set
+> `CONSOLE_STATUS_PLUGINS` to its path (see
+> [plugin architecture](plugins-architecture.md)). The config keys below are set
+> on the component as usual.
+
 The `cloudflare-workers` provider reports a Cloudflare Worker's health from its
 recent invocation analytics. It queries the Cloudflare GraphQL Analytics API
 (`workersInvocationsAdaptive`) for the request and error counts over a trailing

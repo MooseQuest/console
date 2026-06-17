@@ -27,12 +27,19 @@ func (p *pluginStore) Close() error {
 // clientConfig builds the go-plugin client config shared by every seam loader:
 // the common handshake, gRPC-only, the host environment inherited by the
 // subprocess, and a quiet logger.
+//
+// AutoMTLS makes the host generate a per-launch mutual-TLS certificate and pass
+// it to the plugin, so the plugin's gRPC server only accepts connections from
+// this host — preventing another local process from hijacking a running
+// plugin's port. The plugin side auto-detects the cert, so no Serve change is
+// needed and existing plugins stay compatible.
 func clientConfig(plugins goplugin.PluginSet, path string) *goplugin.ClientConfig {
 	return &goplugin.ClientConfig{
 		HandshakeConfig:  Handshake,
 		Plugins:          plugins,
 		Cmd:              exec.Command(path),
 		AllowedProtocols: []goplugin.Protocol{goplugin.ProtocolGRPC},
+		AutoMTLS:         true,
 		Logger:           hclog.New(&hclog.LoggerOptions{Name: "console-plugin", Level: hclog.Warn, Output: os.Stderr}),
 	}
 }

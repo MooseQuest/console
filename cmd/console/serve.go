@@ -30,7 +30,14 @@ func cmdServe(args []string, cfg config.Config) error {
 	}
 	defer a.Close()
 
-	srv := &http.Server{Addr: cfg.Addr, Handler: server.New(a).Handler()}
+	srv := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           server.New(a).Handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 
 	// Shut the server down when the signal context is cancelled.
 	go func() {

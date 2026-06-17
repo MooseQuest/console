@@ -133,7 +133,7 @@ func (o *Ollama) Complete(ctx context.Context, req llm.Request) (string, error) 
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20)) // cap response at 8 MiB
 	if err != nil {
 		return "", fmt.Errorf("ollama: read response: %w", err)
 	}

@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Go module dependencies — keep deps current and catch vulnerable versions.
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      go-dependencies:
+        patterns: ["*"]
+
+  # GitHub Actions — propose SHA bumps for the pinned actions.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

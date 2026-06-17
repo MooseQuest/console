@@ -12,9 +12,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/moosequest/console/internal/core"
@@ -90,7 +92,9 @@ func (n *Notifier) Notify(ctx context.Context, ev core.Event) error {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("webhook: post: %w", err)
+		// The webhook URL may carry a token; strip it from the error so it
+		// never reaches logs.
+		return fmt.Errorf("webhook: post failed: %v", redactURL(err))
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -98,4 +102,14 @@ func (n *Notifier) Notify(ctx context.Context, ev core.Event) error {
 		return fmt.Errorf("webhook: status %d: %s", resp.StatusCode, bytes.TrimSpace(snippet))
 	}
 	return nil
+}
+
+// redactURL strips any embedded request URL from err (the webhook URL may carry
+// a token), returning the underlying cause so logs never expose it.
+func redactURL(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return ue.Err
+	}
+	return err
 }

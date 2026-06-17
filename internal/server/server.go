@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -80,7 +81,23 @@ func (s *Server) Routes() {
 
 // Handler returns the mux wrapped with logging + panic-recovery middleware.
 func (s *Server) Handler() http.Handler {
-	return logging(recoverPanic(s.mux))
+	return logging(recoverPanic(securityHeaders(s.mux)))
+}
+
+// securityHeaders sets conservative response headers on every response:
+// nosniff, deny framing (clickjacking), a restrictive referrer policy, and a
+// CSP that allows the embedded static assets plus the (currently CDN-loaded)
+// htmx script. Tighten the CSP once htmx is vendored.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Content-Security-Policy",
+			"default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // ListenAndServe serves the dashboard and API on addr until the process exits.
@@ -159,9 +176,14 @@ type errBody struct {
 	Error string `json:"error"`
 }
 
-// decodeJSON decodes the request body into dst, reporting a malformed body.
+// maxBodyBytes caps the size of a decoded request body to bound memory use on
+// untrusted input.
+const maxBodyBytes = 1 << 20 // 1 MiB
+
+// decodeJSON decodes the request body into dst, reporting a malformed body. The
+// body is size-limited; an over-limit body fails to decode and is rejected.
 func decodeJSON(r *http.Request, dst any) error {
-	return json.NewDecoder(r.Body).Decode(dst)
+	return json.NewDecoder(io.LimitReader(r.Body, maxBodyBytes)).Decode(dst)
 }
 
 // --- shared template helper ---

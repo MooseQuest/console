@@ -175,17 +175,25 @@ func (e *Engine) RunAll(ctx context.Context) ([]core.Check, error) {
 	}
 
 	checks := make([]core.Check, len(comps))
+	// Bound concurrency so a large component set can't fan out into an unbounded
+	// number of goroutines and outbound requests at once.
+	sem := make(chan struct{}, maxConcurrentChecks)
 	var wg sync.WaitGroup
 	for i, comp := range comps {
 		wg.Add(1)
+		sem <- struct{}{}
 		go func(i int, comp core.Component) {
 			defer wg.Done()
+			defer func() { <-sem }()
 			checks[i] = e.Run(ctx, comp)
 		}(i, comp)
 	}
 	wg.Wait()
 	return checks, nil
 }
+
+// maxConcurrentChecks caps how many components RunAll probes at once.
+const maxConcurrentChecks = 16
 
 // Snapshot reads the latest check per component and aggregates them into a
 // core.Health.

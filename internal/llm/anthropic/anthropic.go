@@ -145,7 +145,7 @@ func (a *Anthropic) Complete(ctx context.Context, req llm.Request) (string, erro
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20)) // cap response at 8 MiB
 	if err != nil {
 		return "", fmt.Errorf("anthropic: read response: %w", err)
 	}

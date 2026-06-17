@@ -11,7 +11,10 @@ import (
 
 // Config is the resolved runtime configuration.
 type Config struct {
-	// Addr is the HTTP listen address, e.g. ":8080".
+	// Addr is the HTTP listen address. Defaults to loopback (127.0.0.1:8080)
+	// because the API and dashboard have no built-in authentication yet —
+	// exposing them requires an authenticating reverse proxy. Set ":8080" (all
+	// interfaces) deliberately, behind such a proxy. See docs/security/.
 	Addr string
 	// DB is the storage DSN. For SQLite this is a file path ("console.db") or
 	// "" / ":memory:" for an in-memory database.
@@ -50,7 +53,7 @@ type Config struct {
 // Default returns the baseline configuration before env/flag overrides.
 func Default() Config {
 	return Config{
-		Addr:        ":8080",
+		Addr:        "127.0.0.1:8080",
 		DB:          "console.db",
 		LLMProvider: "anthropic",
 	}
@@ -59,7 +62,7 @@ func Default() Config {
 // FromEnv returns the default config with any CONSOLE_* environment overrides
 // applied. Recognized variables:
 //
-//	CONSOLE_ADDR          HTTP listen address (default ":8080")
+//	CONSOLE_ADDR          HTTP listen address (default "127.0.0.1:8080", loopback)
 //	CONSOLE_DB            storage DSN / SQLite path (default "console.db")
 //	CONSOLE_LLM_PROVIDER  LLM provider name (default "anthropic", "" to disable)
 //	CONSOLE_MODEL         LLM model override

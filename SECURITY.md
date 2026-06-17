@@ -3,6 +3,36 @@
 Console is an early (`0.x`) project from MooseQuest LLC. We take security
 seriously and appreciate reports that help keep Console and its users safe.
 
+## Hardening & deployment
+
+> **Console currently has no built-in API authentication or authorization.**
+> Any HTTP client that can reach the server can read and modify flags and
+> components, and can read component `config` values that may contain API
+> tokens.
+>
+> Until authentication ships, you **must** run Console bound to loopback
+> (`127.0.0.1`, the default) and access it through an SSH tunnel, or place it
+> behind an authenticating reverse proxy. Never expose Console directly on a
+> network interface without an authenticating layer in front of it.
+>
+> See [docs/security/runtime-hardening.md](docs/security/runtime-hardening.md)
+> for the full explanation, current mitigations, and the remediation roadmap.
+
+### Security SOPs
+
+Three living documents cover Console's security posture:
+
+- [**Runtime hardening**](docs/security/runtime-hardening.md) — API auth gap
+  (the #1 priority), secrets handling, SSRF/egress controls, CSRF, security
+  headers, and DoS limits. Start here.
+- [**Plugin trust & isolation**](docs/security/plugin-trust.md) — the plugin
+  subprocess threat model, AutoMTLS, planned checksum verification
+  (SecureConfig), and minimal-env isolation. Operator and contributor
+  checklists.
+- [**Supply-chain security SOP**](docs/security/supply-chain.md) — dependency
+  policy, `govulncheck`, Dependabot, pinned GitHub Actions SHAs, build/release
+  integrity, and the htmx-from-CDN risk.
+
 ## Reporting a vulnerability
 
 Please report security vulnerabilities by email to **support@moosequest.net**.

@@ -5,7 +5,7 @@
 **A modular, self-hostable control plane for the apps you build — feature flags + status monitoring in one small binary.**
 
 [![CI](https://github.com/MooseQuest/console/actions/workflows/ci.yml/badge.svg)](https://github.com/MooseQuest/console/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v0.2.0-blue)](https://github.com/MooseQuest/console/releases/latest)
+[![Release](https://img.shields.io/badge/release-v0.2.1-blue)](https://github.com/MooseQuest/console/releases/latest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/moosequest/console)](https://goreportcard.com/report/github.com/moosequest/console)
 [![Go](https://img.shields.io/github/go-mod/go-version/MooseQuest/console)](go.mod)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)

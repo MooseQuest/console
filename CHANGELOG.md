@@ -4,6 +4,26 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [0.2.1] - 2026-06-17
+
+Security hardening release (from a repo-wide security review + `govulncheck`).
+
+### Security
+- Bumped `golang.org/x/net` → v0.55.0 and `golang.org/x/sys` → v0.45.0, clearing
+  8 transitive advisories (none were reachable from Console's code).
+- Plugins: enabled go-plugin **AutoMTLS** so only the launching host can talk to
+  a plugin's gRPC port.
+- The HTTP server now **defaults to loopback** (`127.0.0.1:8080`) — it has no
+  built-in auth yet, so exposing it is now a deliberate opt-in behind an
+  authenticating reverse proxy. Added server timeouts, a 1 MiB request-body cap,
+  and security headers (nosniff, `X-Frame-Options`, `Referrer-Policy`, CSP).
+- Bounded LLM provider response reads; bounded `RunAll` concurrency; redacted
+  secret-bearing URLs from notifier error logs.
+- Supply chain: pinned GitHub Actions to commit SHAs, added a `govulncheck` CI
+  job, and enabled Dependabot.
+- Added security SOPs under `docs/security/` (supply chain, plugin trust,
+  runtime hardening) and a hardening/deployment note in `SECURITY.md`.
+
 ## [0.2.0] - 2026-06-16
 
 Six new plugins, a cross-platform developer guide, and a support contact.
@@ -73,5 +93,6 @@ Host↔plugin compatibility is governed by the go-plugin handshake
 - Licensed under **AGPL-3.0** with a contributor CLA.
 - Documentation site under `docs/` (GitHub Pages).
 
+[0.2.1]: https://github.com/MooseQuest/console/releases/tag/v0.2.1
 [0.2.0]: https://github.com/MooseQuest/console/releases/tag/v0.2.0
 [0.1.0]: https://github.com/MooseQuest/console/releases/tag/v0.1.0

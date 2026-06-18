@@ -26,6 +26,7 @@ Commands:
   flag        Manage feature flags (list, get, create, enable, disable, delete, eval)
   status      Manage status components (list, add, check, snapshot)
   onboard     Onboard an app into Console (Human or AI-Assisted mode)
+  qr          Show a QR code to open the dashboard on your phone
   version     Print the version
   help        Show this help
 
@@ -64,6 +65,8 @@ func run(args []string) error {
 		return cmdStatus(rest, cfg)
 	case "onboard":
 		return cmdOnboard(rest, cfg)
+	case "qr":
+		return cmdQR(rest, cfg)
 	case "version", "--version", "-v":
 		fmt.Printf("console %s\n", version)
 		return nil

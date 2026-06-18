@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/moosequest/console/internal/app"
@@ -16,6 +17,7 @@ func cmdServe(args []string, cfg config.Config) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	addr := fs.String("addr", cfg.Addr, "HTTP listen address")
 	db := fs.String("db", cfg.DB, "SQLite path or DSN")
+	qr := fs.Bool("qr", false, "print a QR code to open the dashboard on your phone")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -49,6 +51,13 @@ func cmdServe(args []string, cfg config.Config) error {
 
 	fmt.Printf("console %s listening on %s (db=%s, ai=%t)\n",
 		version, cfg.Addr, displayDB(cfg.DB), a.LLM != nil)
+	if *qr {
+		if ip, err := lanIP(); err == nil {
+			_ = showQR(os.Stdout, fmt.Sprintf("http://%s:%s", ip, addrPort(cfg.Addr)), isLoopback(cfg.Addr), addrPort(cfg.Addr))
+		} else {
+			fmt.Fprintf(os.Stderr, "console: -qr: could not detect LAN IP: %v\n", err)
+		}
+	}
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}

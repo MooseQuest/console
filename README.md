@@ -66,6 +66,29 @@ verify against `SHA256SUMS.txt`, expand it, then run `.\console.exe serve`.
 [SECURITY.md](SECURITY.md)). To use a plugin (e.g. Postgres), point the matching
 env var at its binary — see [docs/plugins-architecture.md](docs/plugins-architecture.md).
 
+### Open it on your phone
+
+To view the dashboard on your phone, run Console so your LAN can reach it, then
+scan a QR code from the terminal:
+
+```bash
+CONSOLE_ADDR=:8080 ./console serve --qr   # bind to the LAN + print a QR to scan
+# or, against a running server:
+CONSOLE_ADDR=:8080 ./console qr
+```
+
+`qr` encodes `http://<your machine's LAN IP>:8080`; scan it from a phone on the
+**same Wi-Fi**. (Binding off loopback exposes the unauthenticated dashboard to
+your network — only do this on a trusted LAN.)
+
+For access from **anywhere**, run a tunnel and QR-encode its URL — the tunnel's
+own access controls are your authentication until Console's lands:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:8080      # -> https://<name>.trycloudflare.com
+./console qr -url https://<name>.trycloudflare.com
+```
+
 ## Quickstart
 
 ```bash

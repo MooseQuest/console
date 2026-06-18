@@ -4,7 +4,7 @@ PKG     := ./...
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.1.0-dev")
 LDFLAGS := -X main.version=$(VERSION)
 
-.PHONY: build plugins proto test vet fmt run clean install tidy
+.PHONY: build plugins dist proto test vet fmt run clean install tidy
 
 build: ## Build the console binary
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/console
@@ -12,6 +12,9 @@ build: ## Build the console binary
 plugins: ## Build all out-of-process plugin binaries into ./bin
 	@mkdir -p bin
 	go build -o bin/ ./cmd/console-plugin-...
+
+dist: ## Build release bundles (all platforms) + checksums into ./dist
+	bash scripts/dist.sh $(VERSION)
 
 proto: ## Regenerate gRPC stubs from proto/ (needs protoc + protoc-gen-go[-grpc])
 	protoc --go_out=. --go_opt=module=github.com/moosequest/console \

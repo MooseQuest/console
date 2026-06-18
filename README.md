@@ -38,6 +38,34 @@ It ships with two ways to get an app set up:
 |---|---|---|
 | ![Overview](docs/assets/overview.png) | ![Flags](docs/assets/flags.png) | ![Status](docs/assets/status.png) |
 
+## Install
+
+**Prebuilt binaries** (no Go toolchain needed) — grab the bundle for your platform
+from the [latest release](https://github.com/MooseQuest/console/releases/latest).
+Each bundle contains the `console` binary **plus all plugins**; the core runs with
+zero plugins and zero config (embedded SQLite + the `http` status provider).
+
+```bash
+# macOS / Linux (pick your os/arch: darwin|linux, arm64|amd64)
+curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.2.1/console_v0.2.1_darwin_arm64.tar.gz
+curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.2.1/SHA256SUMS.txt
+shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # verify integrity
+tar xzf console_v0.2.1_darwin_arm64.tar.gz && cd console_v0.2.1_darwin_arm64
+./console serve                                     # http://127.0.0.1:8080
+```
+
+> **macOS:** downloaded binaries are quarantined by Gatekeeper. Clear it with
+> `xattr -dr com.apple.quarantine ./console` (the binaries are not yet notarized).
+
+**Windows (PowerShell):** download `console_v0.2.1_windows_amd64.zip` from the release,
+verify against `SHA256SUMS.txt`, expand it, then run `.\console.exe serve`.
+
+**From source** (needs Go 1.22+): `make build` (see [Quickstart](#quickstart)).
+
+`console serve` binds to **loopback** by default (no built-in auth yet — see
+[SECURITY.md](SECURITY.md)). To use a plugin (e.g. Postgres), point the matching
+env var at its binary — see [docs/plugins-architecture.md](docs/plugins-architecture.md).
+
 ## Quickstart
 
 ```bash

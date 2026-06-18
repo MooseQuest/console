@@ -4,6 +4,21 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [0.3.0] - 2026-06-17
+
+### Added
+- **Open the dashboard on your phone** — `console qr` renders a scannable
+  terminal QR code of `http://<LAN-IP>:<port>`, and `console serve --qr` prints
+  it at startup. `-url` encodes any address (e.g. a tunnel URL) for remote
+  access. Same-Wi-Fi use is the safe default; it warns when bound to loopback
+  and that exposing the (still unauthenticated) dashboard needs a trusted
+  network. README documents the LAN and tunnel paths.
+
+### Distribution
+- Release bundles now include **Windows** (amd64/arm64) alongside macOS/Linux,
+  plus a **`SHA256SUMS.txt`** for integrity. New `make dist` builds all bundles.
+- README **Install** section with verify-and-run steps per OS.
+
 ## [0.2.1] - 2026-06-17
 
 Security hardening release (from a repo-wide security review + `govulncheck`).
@@ -93,6 +108,7 @@ Host↔plugin compatibility is governed by the go-plugin handshake
 - Licensed under **AGPL-3.0** with a contributor CLA.
 - Documentation site under `docs/` (GitHub Pages).
 
+[0.3.0]: https://github.com/MooseQuest/console/releases/tag/v0.3.0
 [0.2.1]: https://github.com/MooseQuest/console/releases/tag/v0.2.1
 [0.2.0]: https://github.com/MooseQuest/console/releases/tag/v0.2.0
 [0.1.0]: https://github.com/MooseQuest/console/releases/tag/v0.1.0

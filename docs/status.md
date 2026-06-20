@@ -32,11 +32,13 @@ config map the provider interprets.
 ## Providers
 
 A provider performs a single health check and returns its state. Providers are
-registered by name; a component selects one via its `provider` field. Console
-ships with the built-in **`http`** provider and a **`cloudflare-workers`**
-provider. Additional providers (TCP, a custom probe, a downstream dependency
-check) are added by implementing the `status.Provider` interface and registering
-them — see [plugins](plugins.md).
+registered by name (built-in providers in-process, plugin providers loaded from
+their `console-plugin-*` binaries at startup); a component selects one via its
+`provider` field. Console ships with the built-in **`http`** provider and a
+**`cloudflare-workers`** provider. Additional providers (TCP, a custom probe, a
+downstream dependency check) are added by implementing the `status.Provider`
+interface and serving them as out-of-process plugins — see
+[plugin architecture](plugins-architecture.md).
 
 If a component names a provider that isn't registered, its check is recorded as
 `unknown` with a message — it is still recorded so the snapshot reflects reality.
@@ -122,12 +124,6 @@ State mapping (error rate = errors / requests over the window):
 | missing `account_id` / `worker` / token | **unknown** |
 | zero invocations in the window (idle) | **unknown** |
 
-```bash
-console status add my-api -provider cloudflare-workers
-# then set its config (account_id, worker) via the API, or:
-export CLOUDFLARE_API_TOKEN=...   # used as the default token
-```
-
 ```json
 {
   "key": "my-api",
@@ -161,7 +157,7 @@ There are four health states. Their ordering matters for aggregation:
 | `3` | `down` | not working |
 
 The dashboard renders these as colored dots: green (operational), amber
-(degraded), red (down), grey (unknown).
+(degraded), red (down), gray (unknown).
 
 ## Snapshot aggregation
 
@@ -222,12 +218,7 @@ console status delete web
 # Register a component
 curl -X POST localhost:8080/api/components \
   -d '{"key":"api","name":"Public API","provider":"http","config":{"url":"https://example.com/health"}}'
-
-# Run a check now (returns the resulting Check)
-curl -X POST localhost:8080/api/components/api/check
-
-# Read the aggregate snapshot
-curl localhost:8080/api/health
 ```
 
-See the full [API reference](api.md) for response shapes and error codes.
+See the full [API reference](api.md) for the request/response shapes and error
+codes.

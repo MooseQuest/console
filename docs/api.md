@@ -14,10 +14,23 @@ HTTP for now).
 
 ## Conventions
 
-- Base URL defaults to `http://localhost:8080` (`CONSOLE_ADDR`, default `:8080`).
+- Base URL defaults to `http://localhost:8080` (`CONSOLE_ADDR`, default
+  `127.0.0.1:8080` — loopback).
 - All request and response bodies are JSON. Send `Content-Type: application/json`
   on writes.
 - Resources are addressed by their `key`.
+
+### Security
+
+- **No API auth yet.** There is no token or session check — anyone who can reach
+  the listen address can read and write. Keep it bound to loopback
+  (`CONSOLE_ADDR` default `127.0.0.1:8080`) and front it with your own auth if you
+  expose it.
+- **Request bodies are capped at 1 MiB.** An over-limit body is rejected rather
+  than buffered.
+- The server sets security headers on every response: `X-Content-Type-Options:
+  nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and a
+  restrictive Content-Security-Policy.
 
 | Method | Path | Description |
 |---|---|---|

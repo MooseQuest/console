@@ -18,7 +18,7 @@ Markdown setup guide.
 | Mode | How it works | Needs |
 |---|---|---|
 | **Human** | An interactive terminal wizard walks you through components and flags. | nothing |
-| **AI-Assisted** | You describe your app in a sentence; an LLM (Claude by default) drafts the plan. | a configured LLM provider + `ANTHROPIC_API_KEY` |
+| **AI-Assisted** | You describe your app in a sentence; an LLM (Claude by default) drafts the plan. | a configured LLM plugin (`CONSOLE_LLM_PLUGIN`) + the matching key (e.g. `ANTHROPIC_API_KEY`) |
 
 Both modes are non-destructive on their own: building a plan never touches
 storage. Persisting happens only when you apply it.
@@ -54,10 +54,6 @@ same over a pipe.
 
 ## AI-Assisted mode
 
-AI mode needs an LLM plugin (e.g. `console-plugin-anthropic`) selected via
-`CONSOLE_LLM_PLUGIN`; the plugin reads `ANTHROPIC_API_KEY` from the environment.
-With no LLM plugin configured, AI mode is unavailable and Human mode still works.
-
 ```bash
 export CONSOLE_LLM_PLUGIN=$PWD/bin/console-plugin-anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
@@ -66,7 +62,7 @@ console onboard -ai \
   -desc "A Rails store with a Sidekiq worker and a Postgres DB"
 ```
 
-In AI mode Console sends your name and description to the configured LLM provider
+In AI mode Console sends your name and description to the configured LLM plugin
 with a strict system prompt asking for a single JSON object: a list of
 components (2–5) and flags (2–5) that fit the description, plus advisory notes.
 The reply is parsed robustly (a wrapping ```` ```json ```` fence is stripped) and
@@ -77,15 +73,11 @@ normalized:
 - provider defaulted to `http`,
 - component keys minted from names when absent.
 
-AI mode requires a provider. It is configured by `CONSOLE_LLM_PROVIDER`
-(default `anthropic`; set to `""` to disable) and the matching key
-(`ANTHROPIC_API_KEY`). If no provider is configured, AI mode reports a clear
-error and you should fall back to Human mode.
-
-```bash
-# Disable AI entirely (Human mode still works)
-CONSOLE_LLM_PROVIDER="" console onboard
-```
+AI mode is on whenever `CONSOLE_LLM_PLUGIN` points at an LLM plugin binary
+(`console-plugin-anthropic`, `console-plugin-openai`, or `console-plugin-ollama`)
+and the plugin's key is in the environment. To turn it off, simply leave
+`CONSOLE_LLM_PLUGIN` unset — Human mode still works, and `-ai` reports a clear
+error.
 
 ## Applying a plan
 
@@ -134,6 +126,7 @@ console onboard [-ai] [-name <app>] [-desc <text>] [-apply] [-guide <path>]
 console onboard -guide setup.md
 
 # AI mode, draft + apply + guide in one shot
+export CONSOLE_LLM_PLUGIN=$PWD/bin/console-plugin-anthropic
 export ANTHROPIC_API_KEY=sk-ant-...
 console onboard -ai -name "Acme" \
   -desc "A Rails store with a Sidekiq worker and a Postgres DB" \

@@ -15,7 +15,9 @@ Terraform and Vault use. The benefits:
 The core defines a gRPC contract per seam (`proto/`), a host-side **loader** that
 launches a plugin and returns a value satisfying the seam's Go interface, and a
 plugin-side **serve** helper. Engines never know an implementation lives in
-another process.
+another process. The host runs go-plugin with **AutoMTLS enabled**
+(`internal/plugin/host.go`), so each launch generates a per-launch mutual-TLS
+certificate and the host talks only to the subprocess it started.
 
 ## Seams
 
@@ -61,13 +63,15 @@ project (`< degraded_count` operational, `≥ down_count` down). For the LLM sea
 `ollama` needs no API key and talks to a local Ollama server, which makes it the
 easy fully-local option for AI-Assisted onboarding.
 
+> **Build first.** All the examples below assume you have built the host and the
+> plugin binaries once: `make build && make plugins` (→ `./console` and
+> `./bin/console-plugin-*`). The `export` lines then point the host at the
+> plugins you want.
+
 ## Using the Postgres store plugin
 
 ```bash
-# 1. Build the host and the plugin
-make build && make plugins        # -> ./console and ./bin/console-plugin-postgres
-
-# 2. Point the host at the plugin + your Postgres DSN
+# Point the host at the plugin + your Postgres DSN
 export CONSOLE_STORE_PLUGIN=$PWD/bin/console-plugin-postgres
 export CONSOLE_DB="postgres://user:pass@host:5432/console?sslmode=require"
 
@@ -85,8 +89,6 @@ the host launches each and registers it as a sink, so you can run several at
 once. Each reads its own config from the environment it inherits:
 
 ```bash
-make build && make plugins        # -> ./bin/console-plugin-{slack,webhook,email}
-
 # Run all three sinks at once:
 export CONSOLE_NOTIFY_PLUGINS="$PWD/bin/console-plugin-slack,$PWD/bin/console-plugin-webhook,$PWD/bin/console-plugin-email"
 
@@ -113,8 +115,6 @@ emission stay in the core; only the sinks are out-of-process.
 ## Using the status and LLM plugins
 
 ```bash
-make build && make plugins   # -> ./bin/console-plugin-{cloudflare,heroku,sentry,anthropic,openai,ollama}
-
 # Status providers (a list — each registers under its own name):
 export CONSOLE_STATUS_PLUGINS="$PWD/bin/console-plugin-cloudflare,$PWD/bin/console-plugin-heroku,$PWD/bin/console-plugin-sentry"
 export CLOUDFLARE_API_TOKEN=...   # default token for the cloudflare-workers provider

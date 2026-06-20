@@ -14,7 +14,9 @@
 
 ## TL;DR (3 sentences)
 
-Console is a **self-hostable server binary** — the category of software for which the AGPL-3.0 "network use" clause was explicitly designed. Staying on MIT maximizes adoption and lets anyone (including cloud competitors) embed or host Console without contributing back; AGPL-3.0 flips that default and requires anyone who **modifies and network-hosts** Console to publish their source changes. If MooseQuest LLC ever plans to sell a hosted or commercial edition, pairing AGPL-3.0 with a Contributor License Agreement (CLA) that grants MooseQuest a commercial sublicense right is the standard playbook used by Grafana, Unleash, and similar tools — but it requires a copyright attorney to draft the CLA and to advise on the relicensing mechanics.
+Console is a **self-hostable server binary** — the category of software for which the AGPL-3.0 "network use" clause was explicitly designed. Staying on MIT would maximize adoption and let anyone (including cloud competitors) embed or host Console without contributing back.
+
+AGPL-3.0 flips that default and requires anyone who **modifies and network-hosts** Console to publish their source changes. If MooseQuest LLC ever plans to sell a hosted or commercial edition, pairing AGPL-3.0 with a Contributor License Agreement (CLA) that grants MooseQuest a commercial sublicense right is the standard playbook used by Grafana, Unleash, and similar tools — but it requires a copyright attorney to draft the CLA and to advise on the relicensing mechanics.
 
 ---
 
@@ -22,7 +24,7 @@ Console is a **self-hostable server binary** — the category of software for wh
 
 Console is a Go binary (no cgo, pure-Go SQLite via `modernc.org/sqlite`) that runs an HTTP server combining **feature flags** and **status monitoring**. It is invoked as `./console serve` and exposes a web dashboard and JSON API over the network. Users interact with it remotely through a browser or HTTP client. This matters because the AGPL "network use" clause is triggered precisely by this pattern: a modified version of the software served to remote users over a network.
 
-Current placeholder license: **MIT** (copyright MooseQuest LLC, 2026).
+The repo `LICENSE` is now **AGPL-3.0** (copyright MooseQuest LLC, 2026). It was a placeholder **MIT** license prior to the 2026-06-15 decision.
 
 ---
 
@@ -276,7 +278,7 @@ CLA assistant ([cla-assistant.io](https://cla-assistant.io/), provided by SAP as
 
 ### The Inbound-Contribution Problem Before a CLA Exists
 
-If Console is currently under MIT and already has third-party contributions before a CLA is in place, those contributions are MIT-licensed. If MooseQuest later moves to AGPL + CLA, **retroactive CLA coverage of existing MIT contributions is a legal question for an attorney.** The cleaner situation is to adopt CLA and AGPL simultaneously, before significant external contributions accumulate.
+Console was under MIT prior to the 2026-06-15 decision; the repo `LICENSE` is now AGPL-3.0. Any third-party contributions merged while it was MIT remain MIT-licensed, and with the move to AGPL + CLA, **retroactive CLA coverage of existing MIT contributions is a legal question for an attorney.** The cleaner situation is to adopt CLA and AGPL simultaneously, before significant external contributions accumulate.
 
 ---
 
@@ -298,10 +300,10 @@ All claims below are verified against the project's LICENSE file or an official 
 | Redis | BSD → SSPL + RSALv2 (Mar 2024) → returning to open source (2025) | [Redis SSPL announcement](https://redis.io/blog/redis-adopts-dual-source-available-licensing/) · [Redis u-turn](https://kuray.dev/blog/backend-development/rediss-u-turn-abandoning-sspl-and-returning-to-open-source-202505) | AWS and others shifted to Valkey fork within months. Redis reversed course in 2025. |
 
 **Pattern observation (not advice):** Among self-hostable server tools in the feature-flags / monitoring space, the split is roughly:
-- Pure permissive (MIT/BSD/Apache): Flagsmith, PostHog core, GrowthBook core — these rely on open-core (free/paid feature split) rather than license to capture commercial value.
-- AGPL copyleft: Unleash, Grafana — these use the license itself as the mechanism to require contribution-back.
-- Source-available: Flipt (FCL), Sentry (FSL) — these use non-OSI licenses to block competing commercial forks while converting to OSS after 2 years.
-- Strong source-available / proprietary: MongoDB (SSPL), HashiCorp (BSL), Redis (SSPL) — all three experienced significant community fork or backlash events.
+- Pure permissive (MIT/BSD/Apache): Flagsmith, PostHog core, GrowthBook core.
+- AGPL copyleft: Unleash, Grafana.
+- Source-available: Flipt (FCL), Sentry (FSL).
+- Strong source-available / proprietary: MongoDB (SSPL), HashiCorp (BSL), Redis (SSPL) — all three saw significant community-fork or backlash events.
 
 ---
 
@@ -314,8 +316,8 @@ The operator should identify which primary intent applies, then use the matrix b
 | **Maximize adoption** — get Console widely used, build ecosystem, trust, integrations. Commercial monetization is secondary or later. | MIT or Apache-2.0 | Easiest for any developer/company to adopt. No cloud-hosting protection. Closed-source forks permitted. Patent grant is a reason to prefer Apache-2.0 over MIT. | "What are the implications of switching from MIT to Apache-2.0 now, while contributions are minimal?" |
 | **Protect a future hosted/commercial edition** — MooseQuest plans to sell a SaaS or enterprise edition and does not want competitors to host modified Console without contributing back. | AGPL-3.0 + CLA | Requires drafting and enforcing a CLA. Contributors will see the CLA before opening a PR. Reduces casual contribution. AGPL is blocked by some enterprise legal policies but is well-understood in the infra space. | "Draft a CLA that assigns or sublicenses contributions to MooseQuest LLC. What is the scope and can it survive relicensing later?" |
 | **Protect commercial features in a self-hosted binary** — Console may gain paid commercial features that users run themselves, and MooseQuest needs to prevent someone from forking the binary and bypassing the paywall. | FCL 1.0 (converts to Apache-2.0/MIT after 2 years) or FSL 1.1 | Not OSI-approved; blocked by distros and many enterprise policies. FCL specifically addresses self-hosted feature gating, which FSL does not. Converts to open source after 2 years, which limits long-term lock-in. | "Is FCL enforceable in our jurisdiction? Does the 2-year window align with our commercial roadmap?" |
-| **Keep it simple** — No commercial edition planned; MooseQuest just wants to ship an OSS tool cleanly. | MIT (current) or Apache-2.0 | Maximum simplicity. The only upgrade to consider is Apache-2.0 for the patent grant. | "Should we upgrade to Apache-2.0 now? Any concerns with our existing single external dependency (modernc.org/sqlite)?" |
-| **Prevent cloud providers specifically (maximum protection)** | SSPL v1 | Evidence from MongoDB and Redis: high probability of community fork and loss of Linux distribution packaging. OSI-rejected, which triggers corporate policy blocks. Not recommended without large market share and legal budget for enforcement. | "Given the Redis/MongoDB precedent, is SSPL viable for a v0.1 tool? What are the enforcement realities?" |
+| **Keep it simple** — No commercial edition planned; MooseQuest just wants to ship an OSS tool cleanly. | MIT (the pre-2026-06-15 license) or Apache-2.0 | Maximum simplicity. The only upgrade to consider is Apache-2.0 for the patent grant. | "Should we upgrade to Apache-2.0 now? Any concerns with our existing single external dependency (modernc.org/sqlite)?" |
+| **Prevent cloud providers specifically (maximum protection)** | SSPL v1 | Evidence from MongoDB and Redis: high probability of community fork and loss of Linux distribution packaging. OSI-rejected, which triggers corporate policy blocks. Not recommended without large market share and legal budget for enforcement. | "Given the Redis/MongoDB precedent, is SSPL viable for a tool still early (0.x)? What are the enforcement realities?" |
 | **Time-limited protection converting to OSS** — MooseQuest wants protection now but is comfortable with the code becoming MIT/Apache-2.0 in 2 years. | FSL 1.1 or BSL 1.1 (with custom Additional Use Grant) | FSL is cleaner than BSL (less custom drafting). BSL requires writing the Additional Use Grant, which needs an attorney. Neither is OSI-approved. Used by Sentry (FSL) and Flipt (FCL). | "Is 2 years sufficient protection for Console's commercial roadmap? What happens to contributions made during the proprietary period when the code converts?" |
 
 ---
@@ -353,9 +355,9 @@ The operator should identify which primary intent applies, then use the matrix b
 
 **There are no hard regulatory deadlines** governing the license choice. However, there are strategic timing considerations:
 
-1. **Before significant external contributions:** The cleanest time to adopt a CLA is *before* any third-party contributors merge code. Once external contributors have contributed under MIT (the current license), relicensing requires their consent or a legal opinion on what MIT contributions can be relicensed to under AGPL. The repo is at v0.1 — this is the lowest-complexity moment to make this decision.
+1. **Before significant external contributions:** The cleanest time to adopt a CLA is *before* any third-party contributors merge code. Once external contributors have contributed under MIT (the pre-2026-06-15 license), relicensing requires their consent or a legal opinion on what MIT contributions can be relicensed to under AGPL. The repo is at v0.3.0 and still early (0.x) — this is a low-complexity moment to make this decision.
 
-2. **Copyright registration window:** Registration before any infringement occurs (or within 3 months of first publication) is required to claim statutory damages and attorney's fees in US copyright litigation. For a v0.1 project this is not urgent, but if enforcement is ever a goal, registration should happen before the tool gains wide adoption. Source: [17 U.S.C. § 412](https://www.copyright.gov/title17/92chap4.html)
+2. **Copyright registration window:** Registration before any infringement occurs (or within 3 months of first publication) is required to claim statutory damages and attorney's fees in US copyright litigation. For a 0.x project this is not urgent, but if enforcement is ever a goal, registration should happen before the tool gains wide adoption. Source: [17 U.S.C. § 412](https://www.copyright.gov/title17/92chap4.html)
 
 3. **No S-Corp or tax election deadlines are triggered by a license change** (license choice is IP/contract law, not a tax event).
 
@@ -367,7 +369,7 @@ The following questions are research output — not legal advice. Bring these to
 
 1. **CLA vs. copyright assignment:** Should the CLA grant MooseQuest LLC a sublicense to relicense contributions, or should it assign copyright outright? What are the implications of each for contributor relations and for future fundraising/acquisition due diligence?
 
-2. **Relicensing existing MIT contributions:** Console currently has a MIT LICENSE file. If any external contributions were merged under MIT before the CLA is in place, what rights does MooseQuest have to relicense those contributions to AGPL + commercial?
+2. **Relicensing existing MIT contributions:** Console had a MIT LICENSE file prior to the 2026-06-15 decision (the repo `LICENSE` is now AGPL-3.0). If any external contributions were merged under MIT before the CLA is in place, what rights does MooseQuest have to relicense those contributions to AGPL + commercial?
 
 3. **CLA enforceability:** Is a GitHub-flow CLA (signed via CLA assistant) legally enforceable as a binding contract in our operating state? What is required for consideration and acceptance?
 

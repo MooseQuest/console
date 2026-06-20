@@ -8,13 +8,32 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/moosequest/console/internal/config"
 )
 
-// version is overridable at build time via -ldflags "-X main.version=...".
-var version = "0.1.0-dev"
+// version is the release version. Release builds stamp it via
+// -ldflags "-X main.version=<tag>" (see the Makefile / scripts/dist.sh). For an
+// unstamped build it stays "dev", and resolveVersion falls back to the module
+// version recorded by the Go toolchain (e.g. when installed with `go install
+// …/cmd/console@vX.Y.Z`).
+var version = "dev"
+
+// resolveVersion returns the stamped version, or the module version from the
+// build info when unstamped.
+func resolveVersion() string {
+	if version != "dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if v := info.Main.Version; v != "" && v != "(devel)" {
+			return v
+		}
+	}
+	return version
+}
 
 const usage = `Console — monitor and orchestrate your apps (feature flags + status).
 
@@ -31,11 +50,16 @@ Commands:
   help        Show this help
 
 Global environment:
-  CONSOLE_ADDR          HTTP listen address (default ":8080")
-  CONSOLE_DB            SQLite path or DSN (default "console.db", "" for in-memory)
-  CONSOLE_LLM_PROVIDER  AI provider for onboarding (default "anthropic", "" to disable)
-  CONSOLE_MODEL         LLM model override
-  ANTHROPIC_API_KEY     API key for the Anthropic provider
+  CONSOLE_ADDR           HTTP listen address (default "127.0.0.1:8080", loopback)
+  CONSOLE_DB             SQLite path or DSN (default "console.db", "" for in-memory)
+  CONSOLE_STORE_PLUGIN   path to a storage-backend plugin (e.g. console-plugin-postgres)
+  CONSOLE_STATUS_PLUGINS comma/space-separated status-provider plugin paths
+  CONSOLE_NOTIFY_PLUGINS comma/space-separated notifier plugin paths
+  CONSOLE_LLM_PLUGIN     path to an LLM plugin (enables AI-Assisted onboarding)
+
+Plugins inherit this environment, so provider-specific variables
+(e.g. ANTHROPIC_API_KEY, CLOUDFLARE_API_TOKEN, CONSOLE_SLACK_WEBHOOK_URL) are
+read by the relevant plugin.
 
 Run "console <command> -h" for command-specific flags.
 `
@@ -68,7 +92,7 @@ func run(args []string) error {
 	case "qr":
 		return cmdQR(rest, cfg)
 	case "version", "--version", "-v":
-		fmt.Printf("console %s\n", version)
+		fmt.Printf("console %s\n", resolveVersion())
 		return nil
 	case "help", "-h", "--help":
 		fmt.Print(usage)

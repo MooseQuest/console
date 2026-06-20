@@ -152,7 +152,7 @@ func Guide(p Plan) string {
 	}
 
 	b.WriteString("## Next steps\n\n")
-	b.WriteString("- [ ] set `ANTHROPIC_API_KEY` (and `CONSOLE_LLM_PROVIDER=anthropic`) to enable AI-Assisted onboarding\n")
+	b.WriteString("- [ ] set `CONSOLE_LLM_PLUGIN` (e.g. to console-plugin-anthropic) and its key (e.g. `ANTHROPIC_API_KEY`) to enable AI-Assisted onboarding\n")
 	b.WriteString("- [ ] run `console serve` to start the dashboard and status checks\n")
 	b.WriteString("- [ ] wire the Console SDK into your app to evaluate the flags above\n")
 	b.WriteString("- [ ] confirm each component reports healthy on the status page\n")

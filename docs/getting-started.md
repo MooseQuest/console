@@ -26,7 +26,7 @@ shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # verify integrity
 tar xzf console_v0.3.0_darwin_arm64.tar.gz && cd console_v0.3.0_darwin_arm64
 ```
 
-**From source.** Console needs **Go 1.26+** to build. There is no cgo dependency —
+**From source.** Console needs **Go 1.25+** to build. There is no cgo dependency —
 the embedded database is the pure-Go
 [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite), so the result is a
 truly static binary.

@@ -4,6 +4,30 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [0.3.1] - 2026-06-20
+
+Cleanup + hardening release.
+
+### Changed
+- The binary now reports an accurate version: release builds stamp the tag, and
+  `go install`-ed builds fall back to the module version (was a hardcoded
+  `0.1.0-dev`).
+- Removed dead configuration fields (`CONSOLE_LLM_PROVIDER` and the unused
+  Anthropic/Cloudflare/model/Slack config) — AI-Assisted onboarding is enabled
+  solely via `CONSOLE_LLM_PLUGIN`; provider-specific env vars are read by the
+  relevant plugin. CLI help and the generated onboarding guide updated to match.
+- Set the `go.mod` floor to **Go 1.25.11** — the patched toolchain that clears
+  the latest stdlib advisories (was over-specified at 1.26.4); docs updated.
+
+### Security
+- Added a `Permissions-Policy` response header (`camera=(), microphone=(),
+  geolocation=()`).
+- Pinned GitHub Actions bumped to `actions/checkout@v6` and `actions/setup-go@v6`.
+
+### Docs
+- Implemented the librarian documentation-accuracy pass and refreshed the docs
+  site (`docs/index.html`) to the out-of-process four-seam plugin model.
+
 ## [0.3.0] - 2026-06-17
 
 ### Added
@@ -108,6 +132,7 @@ Host↔plugin compatibility is governed by the go-plugin handshake
 - Licensed under **AGPL-3.0** with a contributor CLA.
 - Documentation site under `docs/` (GitHub Pages).
 
+[0.3.1]: https://github.com/MooseQuest/console/releases/tag/v0.3.1
 [0.3.0]: https://github.com/MooseQuest/console/releases/tag/v0.3.0
 [0.2.1]: https://github.com/MooseQuest/console/releases/tag/v0.2.1
 [0.2.0]: https://github.com/MooseQuest/console/releases/tag/v0.2.0

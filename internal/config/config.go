@@ -19,17 +19,6 @@ type Config struct {
 	// DB is the storage DSN. For SQLite this is a file path ("console.db") or
 	// "" / ":memory:" for an in-memory database.
 	DB string
-	// LLMProvider selects the AI-Assisted onboarding backend, e.g. "anthropic".
-	// Empty disables AI-Assisted mode (Human mode still works).
-	LLMProvider string
-	// AnthropicKey is the API key for the Anthropic provider. Falls back to the
-	// ANTHROPIC_API_KEY environment variable when constructing the provider.
-	AnthropicKey string
-	// Model overrides the default LLM model when set.
-	Model string
-	// CloudflareToken is the default Cloudflare API token used by Cloudflare
-	// status providers when a component does not set its own "api_token".
-	CloudflareToken string
 	// StorePlugin is the path to an out-of-process storage-backend plugin
 	// executable (e.g. console-plugin-postgres). When set, it replaces the
 	// built-in SQLite store; the plugin inherits this process's environment.
@@ -53,9 +42,8 @@ type Config struct {
 // Default returns the baseline configuration before env/flag overrides.
 func Default() Config {
 	return Config{
-		Addr:        "127.0.0.1:8080",
-		DB:          "console.db",
-		LLMProvider: "anthropic",
+		Addr: "127.0.0.1:8080",
+		DB:   "console.db",
 	}
 }
 
@@ -64,14 +52,14 @@ func Default() Config {
 //
 //	CONSOLE_ADDR          HTTP listen address (default "127.0.0.1:8080", loopback)
 //	CONSOLE_DB            storage DSN / SQLite path (default "console.db")
-//	CONSOLE_LLM_PROVIDER  LLM provider name (default "anthropic", "" to disable)
-//	CONSOLE_MODEL         LLM model override
-//	ANTHROPIC_API_KEY     Anthropic API key
-//	CLOUDFLARE_API_TOKEN  default token for Cloudflare status providers
 //	CONSOLE_STORE_PLUGIN   path to an out-of-process storage-backend plugin
 //	CONSOLE_NOTIFY_PLUGINS comma/space-separated notifier plugin paths
 //	CONSOLE_STATUS_PLUGINS comma/space-separated status-provider plugin paths
 //	CONSOLE_LLM_PLUGIN     path to an out-of-process LLM provider plugin
+//
+// Provider-specific variables (e.g. ANTHROPIC_API_KEY, CLOUDFLARE_API_TOKEN,
+// CONSOLE_SLACK_WEBHOOK_URL, CONSOLE_MODEL) are read by the relevant plugin,
+// which inherits this process's environment — the host does not consume them.
 func FromEnv() Config {
 	c := Default()
 	if v := os.Getenv("CONSOLE_ADDR"); v != "" {
@@ -80,14 +68,6 @@ func FromEnv() Config {
 	if v, ok := os.LookupEnv("CONSOLE_DB"); ok {
 		c.DB = v
 	}
-	if v, ok := os.LookupEnv("CONSOLE_LLM_PROVIDER"); ok {
-		c.LLMProvider = strings.TrimSpace(v)
-	}
-	if v := os.Getenv("CONSOLE_MODEL"); v != "" {
-		c.Model = v
-	}
-	c.AnthropicKey = os.Getenv("ANTHROPIC_API_KEY")
-	c.CloudflareToken = os.Getenv("CLOUDFLARE_API_TOKEN")
 	c.StorePlugin = os.Getenv("CONSOLE_STORE_PLUGIN")
 	c.NotifyPlugins = splitList(os.Getenv("CONSOLE_NOTIFY_PLUGINS"))
 	c.StatusPlugins = splitList(os.Getenv("CONSOLE_STATUS_PLUGINS"))

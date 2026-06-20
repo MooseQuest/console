@@ -46,7 +46,7 @@ func cmdOnboard(args []string, cfg config.Config) error {
 	var plan onboard.Plan
 	if *useAI {
 		if a.LLM == nil {
-			return fmt.Errorf("AI-Assisted mode unavailable: no LLM provider configured (set CONSOLE_LLM_PROVIDER and ANTHROPIC_API_KEY)")
+			return fmt.Errorf("AI-Assisted mode unavailable: no LLM plugin configured (set CONSOLE_LLM_PLUGIN to e.g. console-plugin-anthropic, with its key such as ANTHROPIC_API_KEY in the environment)")
 		}
 		if *name == "" || *desc == "" {
 			return fmt.Errorf("AI mode needs -name and -desc")

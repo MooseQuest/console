@@ -165,6 +165,7 @@ headers are set on every response:
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
 | `Referrer-Policy` | `no-referrer` |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
 | `Content-Security-Policy` | see below |
 
 `Content-Security-Policy` is already a restrictive CSP with a single CDN
@@ -176,8 +177,6 @@ default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self'; img-s
 
 The only non-`'self'` source is `https://unpkg.com` for the CDN-loaded htmx
 script; that exception will be removed when htmx is vendored (see below).
-
-> `Permissions-Policy` is not set by the middleware today — 🔜 Planned.
 
 ### htmx CDN and CSP — 🔜 Planned
 

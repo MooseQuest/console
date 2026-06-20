@@ -50,7 +50,7 @@ func cmdServe(args []string, cfg config.Config) error {
 	}()
 
 	fmt.Printf("console %s listening on %s (db=%s, ai=%t)\n",
-		version, cfg.Addr, displayDB(cfg.DB), a.LLM != nil)
+		resolveVersion(), cfg.Addr, displayDB(cfg.DB), a.LLM != nil)
 	if *qr {
 		if ip, err := lanIP(); err == nil {
 			_ = showQR(os.Stdout, fmt.Sprintf("http://%s:%s", ip, addrPort(cfg.Addr)), isLoopback(cfg.Addr), addrPort(cfg.Addr))

@@ -24,7 +24,7 @@
 <a id="top"></a>
 <section class="hero" style="border-top:none;">
   <div class="wrap">
-    <span class="eyebrow">Early / v0.1</span>
+    <span class="eyebrow">Early / v0.3</span>
     <h1>One control plane for the apps you build.</h1>
     <p class="lede">
       Console combines <strong>feature flags</strong> and <strong>status monitoring</strong> in a single
@@ -50,7 +50,7 @@
     <div class="prop">
       <div class="icon">2</div>
       <h3>Modular by design</h3>
-      <p>Storage, status providers, and LLM providers all sit behind small Go interfaces. Swap or extend them without touching the core engine.</p>
+      <p>Four seams — storage, status providers, notifiers, and LLM providers — are out-of-process plugins the host launches over gRPC. Add or swap a capability by dropping a <code>console-plugin-*</code> binary, no core recompile.</p>
     </div>
     <div class="prop">
       <div class="icon">3</div>
@@ -168,7 +168,7 @@ make build            <span class="c"># or: go build -o console ./cmd/console</s
       <a class="doccard" href="onboarding.md"><h3>Onboarding</h3><p>Human vs AI-Assisted modes, the plan, applying, and the generated guide.</p></a>
       <a class="doccard" href="api.md"><h3>HTTP API</h3><p>Full endpoint reference with request/response JSON examples.</p></a>
       <a class="doccard" href="architecture.md"><h3>Architecture</h3><p>Package layout, the interface seams, data flow, and the single-binary rationale.</p></a>
-      <a class="doccard" href="plugins.md"><h3>Plugins</h3><p>Implement a Store, status.Provider, or llm.Provider and wire it in.</p></a>
+      <a class="doccard" href="plugins-architecture.md"><h3>Plugins</h3><p>The out-of-process gRPC plugin model: four seams, the catalog, and how to write one.</p></a>
       <a class="doccard" href="../CONTRIBUTING.md"><h3>Contributing</h3><p>Build, test, conventions, and how to land a PR.</p></a>
     </div>
   </div>

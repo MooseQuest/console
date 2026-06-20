@@ -16,8 +16,8 @@ Cleanup + hardening release.
   Anthropic/Cloudflare/model/Slack config) — AI-Assisted onboarding is enabled
   solely via `CONSOLE_LLM_PLUGIN`; provider-specific env vars are read by the
   relevant plugin. CLI help and the generated onboarding guide updated to match.
-- Lowered the `go.mod` floor to **Go 1.25** (the real minimum required by
-  dependencies; was over-specified at 1.26.4); docs updated.
+- Set the `go.mod` floor to **Go 1.25.11** — the patched toolchain that clears
+  the latest stdlib advisories (was over-specified at 1.26.4); docs updated.
 
 ### Security
 - Added a `Permissions-Policy` response header (`camera=(), microphone=(),

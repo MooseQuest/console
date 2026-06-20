@@ -14,7 +14,7 @@ same way everywhere — including the plugins.
 
 ## Prerequisites
 
-- **Go 1.25+** — <https://go.dev/dl/>. Verify with `go version`.
+- **Go 1.25.11+** — <https://go.dev/dl/>. Verify with `go version`.
 - **git**.
 - (Optional) **GNU Make** — convenient on macOS/Linux; not required on Windows.
 - (Only if you change `proto/`) **protoc** plus `protoc-gen-go` and

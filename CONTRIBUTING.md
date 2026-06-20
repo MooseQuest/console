@@ -1,8 +1,9 @@
 # Contributing to Console
 
-Thanks for your interest in Console. It's an early (v0.1) project built to be
-extended — new storage backends, status providers, and LLM providers all plug in
-behind small interfaces. This guide covers how to build, test, and land changes.
+Thanks for your interest in Console (v0.3.0). It's built to be extended — new
+storage backends, status providers, notifiers, and LLM providers all plug in as
+out-of-process `console-plugin-*` binaries. This guide covers how to build, test,
+and land changes.
 
 - [License and the CLA](#license-and-the-cla)
 - [Build and test](#build-and-test)
@@ -31,7 +32,7 @@ I have read the CLA document and I hereby sign the CLA.
 
 ## Build and test
 
-Console needs **Go 1.22+** and no cgo toolchain — the embedded database is the
+Console needs **Go 1.26+** and no cgo toolchain — the embedded database is the
 pure-Go `modernc.org/sqlite`, so a plain `go build` produces a static binary.
 
 ```bash
@@ -41,7 +42,7 @@ make vet     # go vet ./...
 make fmt     # gofmt the tree
 ```
 
-Run `make fmt`, `make vet`, and `make test` before opening a PR. An in-memory
+Run `make fmt`, `make vet`, and `make test` before opening a pull request (PR). An in-memory
 database makes tests instant — pass `CONSOLE_DB=""` (or `:memory:`) when running
 the binary against a throwaway store.
 
@@ -56,20 +57,22 @@ isn't available), see [docs/development.md](docs/development.md).
 ## Repository layout
 
 ```text
-cmd/console/        CLI entrypoint (serve, flag, status, onboard, version)
-internal/core/      domain types (Flag, Subject, Evaluation, Component, Check,
-                    Health) + sentinel errors; depends on nothing else
-internal/config/    runtime configuration (env vars + defaults)
-internal/store/     Store interface (persistence seam)
-internal/store/sqlite/   default SQLite backend (no cgo)
-internal/flags/     flag engine + deterministic evaluation
-internal/status/    status engine + built-in http provider
-internal/llm/        LLM provider interface + Anthropic implementation
-internal/onboard/   Human + AI-Assisted onboarding
-internal/server/    HTTP API + server-rendered htmx dashboard
-internal/web/        embedded templates + static assets
-internal/app/        composition root (wires everything into one App)
-docs/               documentation site + deep-dive references
+cmd/console/             CLI entrypoint (serve, flag, status, onboard, qr, version)
+cmd/console-plugin-*/    10 out-of-process plugin binaries (store/status/notify/llm)
+internal/core/           domain types (Flag, Subject, Evaluation, Component, Check,
+                         Health) + sentinel errors; depends on nothing else
+internal/config/         runtime configuration (env vars + defaults)
+internal/store/          Store interface (persistence seam) + default SQLite backend
+internal/flags/          flag engine + deterministic evaluation
+internal/status/         status engine + built-in http provider
+internal/notify/         Notifier interface + event fan-out
+internal/llm/            LLM provider interface (anthropic/openai/ollama impls)
+internal/onboard/        Human + AI-Assisted onboarding
+internal/plugin/         gRPC plugin host (launches console-plugin-* over gRPC)
+internal/server/         HTTP API + server-rendered htmx dashboard
+internal/web/            embedded templates + static assets
+internal/app/            composition root (wires everything into one App)
+docs/                    documentation site + deep-dive references
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the full design and the
@@ -96,11 +99,17 @@ dependency direction between packages.
 
 ## Adding a plugin
 
-The three extension seams are `store.Store`, `status.Provider`, and
-`llm.Provider`. Adding one is always: implement the interface, then register it
-in `internal/app/app.go`. Step-by-step examples (a TCP status provider, a
-Postgres store, an OpenAI LLM provider) are in
-[docs/plugins.md](docs/plugins.md).
+Console has **four** extension seams — `store.Store`, `status.Provider`,
+`notify.Notifier`, and `llm.Provider`. Plugins are **out-of-process**: each is its
+own `cmd/console-plugin-<name>` binary that the host launches and talks to over
+gRPC, selected at runtime by the matching env var (`CONSOLE_STORE_PLUGIN`,
+`CONSOLE_STATUS_PLUGINS`, `CONSOLE_NOTIFY_PLUGINS`, `CONSOLE_LLM_PLUGIN`). Nothing
+is hand-wired into `internal/app/app.go`; build the binaries with `make plugins`.
+
+To add one: implement the seam interface, build a `cmd/console-plugin-<name>` that
+serves it, and point the host at the binary via its env var. The step-by-step
+template and the full design are in
+[docs/plugins-architecture.md](docs/plugins-architecture.md).
 
 Honor the interface contracts — for stores, that means concurrency-safety and
 returning `core.ErrNotFound` / `core.ErrConflict` — and add table-tests with a

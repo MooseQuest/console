@@ -2,11 +2,12 @@
 
 Console doesn't just observe — it can tell you when something changes. The flag
 and status engines emit **events**, and a **dispatcher** fans each event out to
-every registered **notifier** (Slack today; webhook and email are natural
-additions behind the same interface).
+every registered **notifier**. Three notifiers ship as out-of-process plugins —
+Slack, webhook, and email — each a `console-plugin-*` binary listed in
+`CONSOLE_NOTIFY_PLUGINS`.
 
 - [Events](#events)
-- [The Slack notifier](#the-slack-notifier)
+- [The Slack notifier plugin](#the-slack-notifier-plugin)
 - [How emission works](#how-emission-works)
 - [Writing a notifier](#writing-a-notifier)
 
@@ -72,9 +73,7 @@ is configured.
 
 ## Writing a notifier
 
-Implement `notify.Notifier`, then serve it as an out-of-process plugin (the
-Slack plugin is the template — `cmd/console-plugin-slack` + the notifier adapters
-in `internal/plugin`):
+A notifier implements one small interface:
 
 ```go
 type Notifier interface {
@@ -83,7 +82,8 @@ type Notifier interface {
 }
 ```
 
-A webhook notifier, for example, would `POST` the event as JSON; an email
-notifier would format it as a message body. Each is built into its own
-`console-plugin-<name>` binary and listed in `CONSOLE_NOTIFY_PLUGINS`. See
-[plugin architecture](plugins-architecture.md) for the full design.
+The shipped plugins do exactly this: `console-plugin-webhook` POSTs each event as
+JSON; `console-plugin-email` formats it for SMTP. To add your own, implement the
+interface and build it as a `console-plugin-<name>` binary — see
+[plugin architecture](plugins-architecture.md) for the design and the `Serve`
+mechanics.

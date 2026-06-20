@@ -46,9 +46,9 @@ fetched. It must be committed and reviewed as part of any dependency change.
 - **Never commit a `go.sum` change without a corresponding `go.mod` change** —
   a `go.sum`-only diff is a red flag that a transitive dependency was silently
   upgraded or injected.
-- CI runs with `-mod=readonly` so that the build fails fast if `go.sum` is
-  out of sync with `go.mod`, rather than silently downloading and adding
-  modules.
+- CI builds with a committed `go.sum` (Go's default `-mod=readonly`), so the
+  build fails fast if `go.sum` is out of sync with `go.mod` rather than
+  silently downloading and adding modules.
 - Do not use `go get -u ./...` for bulk upgrades; update one dependency at a
   time so the diff is reviewable.
 
@@ -58,7 +58,7 @@ fetched. It must be committed and reviewed as part of any dependency change.
 
 ### `govulncheck`
 
-[govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) analyses
+[govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck) analyzes
 the call graph to distinguish vulnerabilities that are actually reachable from
 those that are imported but never called. A vulnerability in an imported
 package is not necessarily exploitable; `govulncheck`'s call-graph analysis
@@ -148,16 +148,16 @@ Release tags are signed with the maintainer's GPG key. Verify before building
 from a tag:
 
 ```bash
-git tag -v v0.2.0
+git tag -v v0.3.0
 ```
 
 ### Release artifact checksums
 
-The release workflow produces a `SHA256SUMS` file alongside each release
+The release workflow produces a `SHA256SUMS.txt` file alongside each release
 archive. Operators should verify the checksum of any binary they download:
 
 ```bash
-sha256sum -c SHA256SUMS
+sha256sum -c SHA256SUMS.txt
 ```
 
 ### Future: SLSA provenance
@@ -178,11 +178,9 @@ all credentials. An operator who runs a third-party plugin is trusting that
 binary as much as the host itself.
 
 The plugin distribution channel is therefore a supply-chain surface. See
-[plugin-trust.md](plugin-trust.md) for the full threat model and the planned
-checksum verification (SecureConfig) and signing/allowlist campaign.
-
-In brief: **only run plugins you built yourself or obtained from a source you
-trust, verified against a published checksum.**
+[plugin-trust.md](plugin-trust.md) for the full threat model, the "golden
+rule" for running plugin binaries, and the planned checksum verification
+(SecureConfig) and signing/allowlist campaign.
 
 ---
 
@@ -200,11 +198,12 @@ The dashboard currently loads htmx from a CDN
 **Current state:** 🔜 Planned. The mitigation is to vendor htmx into
 `internal/web/static/` (already embedded via `embed`) and serve it from the
 Console binary itself, with a Subresource Integrity (SRI) hash in the
-`<script>` tag as a belt-and-suspenders check. A Content Security Policy (CSP)
-that disallows inline scripts will be tightened at the same time.
+`<script>` tag as a belt-and-suspenders check. The server's CSP is tightened
+at the same time — dropping the CDN exception (see
+[runtime-hardening.md §5](runtime-hardening.md#5-security-headers)).
 
-Until this lands, operators who require strict integrity controls should run
-Console behind a proxy that enforces a CSP, or audit the htmx version in use.
+Until this lands, operators who require strict integrity controls should
+audit the htmx version in use.
 
 ---
 
@@ -224,8 +223,8 @@ Console behind a proxy that enforces a CSP, or audit the htmx version in use.
 
 - [ ] `govulncheck ./...` — no "Vulnerability in YOUR code" findings open.
 - [ ] All Dependabot security PRs are merged or have a documented exception.
-- [ ] Release tag is signed. SHA256SUMS file is generated and attached.
-- [ ] Plugin binaries in the release archive have checksums in SHA256SUMS.
+- [ ] Release tag is signed. `SHA256SUMS.txt` file is generated and attached.
+- [ ] Plugin binaries in the release archive have checksums in `SHA256SUMS.txt`.
 - [ ] Check `go list -m all` for any modules added since the last release that
   have not gone through the dependency-policy review.
 

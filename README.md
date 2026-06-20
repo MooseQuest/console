@@ -23,12 +23,12 @@ It ships with two ways to get an app set up:
 - **Human mode** — an interactive wizard walks you through what to monitor and which flags to create.
 - **AI-Assisted mode** — describe your app in a sentence and an LLM (Claude by default) drafts the plan for you.
 
-> Status: **early / v0.1**. The core engine, API, dashboard, CLI, and onboarding are working and tested. Interfaces may still change before v1.
+> Status: **v0.3.0**. The core engine, API, dashboard, CLI, and onboarding are working and tested. Interfaces may still change before v1.
 
 ## Why Console
 
 - **One binary, no dependencies.** Pure-Go SQLite (no cgo) means a truly static binary you can drop on any host. Point it at Postgres later when you outgrow a single node.
-- **Modular by design.** Storage, status providers, and LLM providers all sit behind small Go interfaces — swap or extend them without touching the core.
+- **Modular by design.** Four seams — storage, status providers, notifiers, and LLM providers — are **out-of-process plugins** the host launches over gRPC, so you add or swap a capability by dropping a `console-plugin-*` binary, no core recompile.
 - **API-first.** The dashboard is just a client of the same HTTP API your apps and SDKs use.
 - **Deterministic flag evaluation.** The same `(flag, subject)` always resolves the same way, with a stable percentage rollout you can reason about.
 
@@ -47,20 +47,20 @@ zero plugins and zero config (embedded SQLite + the `http` status provider).
 
 ```bash
 # macOS / Linux (pick your os/arch: darwin|linux, arm64|amd64)
-curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.2.1/console_v0.2.1_darwin_arm64.tar.gz
-curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.2.1/SHA256SUMS.txt
+curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.3.0/console_v0.3.0_darwin_arm64.tar.gz
+curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.3.0/SHA256SUMS.txt
 shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # verify integrity
-tar xzf console_v0.2.1_darwin_arm64.tar.gz && cd console_v0.2.1_darwin_arm64
+tar xzf console_v0.3.0_darwin_arm64.tar.gz && cd console_v0.3.0_darwin_arm64
 ./console serve                                     # http://127.0.0.1:8080
 ```
 
 > **macOS:** downloaded binaries are quarantined by Gatekeeper. Clear it with
 > `xattr -dr com.apple.quarantine ./console` (the binaries are not yet notarized).
 
-**Windows (PowerShell):** download `console_v0.2.1_windows_amd64.zip` from the release,
+**Windows (PowerShell):** download `console_v0.3.0_windows_amd64.zip` from the release,
 verify against `SHA256SUMS.txt`, expand it, then run `.\console.exe serve`.
 
-**From source** (needs Go 1.22+): `make build` (see [Quickstart](#quickstart)).
+**From source** (needs Go 1.26+): `make build` (see [Quickstart](#quickstart)).
 
 `console serve` binds to **loopback** by default (no built-in auth yet — see
 [SECURITY.md](SECURITY.md)). To use a plugin (e.g. Postgres), point the matching
@@ -92,7 +92,7 @@ cloudflared tunnel --url http://127.0.0.1:8080      # -> https://<name>.trycloud
 ## Quickstart
 
 ```bash
-# 1. Build (needs Go 1.22+)
+# 1. Build (needs Go 1.26+)
 make build            # or: go build -o console ./cmd/console
 
 # 2. Create a flag and evaluate it for a user
@@ -145,6 +145,7 @@ console serve       Start the HTTP server (dashboard + API)
 console flag        list | get | create | enable | disable | delete | eval
 console status      list | add | check | snapshot | delete
 console onboard     Onboard an app (Human or AI-Assisted mode)
+console qr          Print a QR code to open the dashboard on your phone
 console version
 ```
 
@@ -202,7 +203,7 @@ Core:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `CONSOLE_ADDR` | `:8080` | HTTP listen address |
+| `CONSOLE_ADDR` | `127.0.0.1:8080` | HTTP listen address (loopback) |
 | `CONSOLE_DB` | `console.db` | SQLite path / DSN (`""` for in-memory) |
 
 Plugin selection (each points at a `console-plugin-*` binary; unset = built-in default):
@@ -268,16 +269,21 @@ and [docs/development.md](docs/development.md) for building and running on macOS
 ## Architecture
 
 ```
-cmd/console/        CLI (serve, flag, status, onboard)
-internal/core/      domain types (Flag, Subject, Component, Health)
-internal/store/     Store interface + sqlite backend (pluggable)
-internal/flags/     flag engine + deterministic evaluation
-internal/status/    status engine + http provider (pluggable)
-internal/llm/        LLM provider interface + Anthropic (pluggable)
-internal/onboard/   Human + AI-Assisted onboarding
-internal/server/    HTTP API + server-rendered htmx dashboard
-internal/app/       composition root
-docs/               documentation site (GitHub Pages)
+cmd/console/             CLI (serve, flag, status, onboard, qr, version)
+cmd/console-plugin-*/    10 out-of-process plugin binaries (store/status/notify/llm)
+internal/core/           domain types (Flag, Subject, Component, Health)
+internal/config/         environment + flag configuration
+internal/store/          Store interface + sqlite backend (pluggable)
+internal/flags/          flag engine + deterministic evaluation
+internal/status/         status engine + http provider (pluggable)
+internal/notify/         Notifier interface + event fan-out (pluggable)
+internal/llm/            LLM provider interface (anthropic/openai/ollama impls; pluggable)
+internal/onboard/        Human + AI-Assisted onboarding
+internal/plugin/         gRPC plugin host (launches console-plugin-* over gRPC)
+internal/server/         HTTP API + server-rendered htmx dashboard
+internal/web/            embedded dashboard assets/templates
+internal/app/            composition root
+docs/                    documentation site (GitHub Pages)
 ```
 
 See [docs/architecture.md](docs/architecture.md) for the full design.
@@ -294,7 +300,7 @@ A full docs site lives in [`docs/`](docs/) (served via GitHub Pages from `docs/i
 - [HTTP API reference](docs/api.md)
 - [Architecture](docs/architecture.md)
 - [Plugin architecture (out-of-process gRPC)](docs/plugins-architecture.md)
-- [Writing plugins](docs/plugins.md)
+- [Writing plugins](docs/plugins-architecture.md#writing-a-plugin)
 - [Developing Console (macOS / Linux / Windows)](docs/development.md)
 
 ## Development

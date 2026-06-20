@@ -72,7 +72,7 @@ TLS (AutoMTLS), which go-plugin generates on each startup.
 
 ## Standards and controls
 
-### AutoMTLS — ✅ Done (v0.2.x)
+### AutoMTLS — ✅ Done (v0.2.1)
 
 go-plugin's `AutoMTLS` is enabled in the host's plugin client configuration.
 On each launch, go-plugin generates a fresh ephemeral CA and issues a client
@@ -103,7 +103,7 @@ the expected hash, the host refuses to start it.
 
 The planned workflow:
 
-1. Each official release publishes a `SHA256SUMS` file alongside the plugin
+1. Each official release publishes a `SHA256SUMS.txt` file alongside the plugin
    binaries (same file used by the supply-chain SOP).
 2. Operators configure the expected checksum for each plugin in their
    environment or a config file.
@@ -112,7 +112,7 @@ The planned workflow:
    startup with a clear error, rather than running silently.
 
 Until SecureConfig is wired in, operators who require strong integrity
-guarantees should verify plugin binaries manually against `SHA256SUMS` before
+guarantees should verify plugin binaries manually against `SHA256SUMS.txt` before
 deployment, and run them from a directory with restricted write permissions
 (e.g., owned by root, not writable by the service account).
 
@@ -149,7 +149,7 @@ same access to your credentials as the host process.
 - [ ] Plugin paths are set to absolute paths (e.g.,
   `/opt/console/bin/console-plugin-postgres`, not `./bin/...`).
 - [ ] If the binary came from a release archive, the SHA-256 checksum has been
-  verified against the published `SHA256SUMS` file before first run.
+  verified against the published `SHA256SUMS.txt` file before first run.
 - [ ] If the binary was built locally, it was built from a tagged release
   commit, not from an unreviewed branch.
 - [ ] The service account running `console` does not have unnecessary
@@ -162,7 +162,7 @@ same access to your credentials as the host process.
 
 When upgrading a plugin binary:
 
-1. Download the new binary and verify its checksum against `SHA256SUMS` from
+1. Download the new binary and verify its checksum against `SHA256SUMS.txt` from
    the same release.
 2. Replace the binary in the restricted directory.
 3. Restart `console` — the host relaunches all plugin subprocesses on startup.

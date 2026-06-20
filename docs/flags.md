@@ -82,7 +82,7 @@ flag. Bucketing is derived from a stable 64-bit **FNV-1a** hash of the string
 its bucket is **less than** `rollout`:
 
 - `rollout: 0` includes nobody (no bucket is `< 0`).
-- `rollout: 100` includes everybody (every bucket is `≤ 99 < 100`).
+- `rollout: 100` includes everybody (every bucket is in `[0, 100)`, so `< 100`).
 - `rollout: 50` includes a stable ~50% — the *same* subjects every time.
 
 Because the hash is per `(flag, subject)`, changing one flag's rollout does not
@@ -180,24 +180,7 @@ curl -X POST localhost:8080/api/flags/new-dashboard/evaluate \
 ```
 
 From application code, the integration is the same HTTP call — there is no
-native client SDK yet (it's on the roadmap):
-
-```js
-async function evaluate(flagKey, subject) {
-  const res = await fetch(`http://localhost:8080/api/flags/${flagKey}/evaluate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(subject), // { key, attributes }
-  });
-  return res.json(); // { flag_key, enabled, variant, value, reason }
-}
-
-const { enabled } = await evaluate("new-dashboard", {
-  key: "user-123",
-  attributes: { audience: "beta" },
-});
-if (enabled) renderNewDashboard();
-```
-
-See the full [API reference](api.md) for error responses and the flag CRUD
-endpoints.
+native client SDK yet (it's on the roadmap). See
+[Integrating from app code](api.md#integrating-from-app-code) for a minimal
+`fetch` wrapper, and the full [API reference](api.md) for error responses and the
+flag CRUD endpoints.

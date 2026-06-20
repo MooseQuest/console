@@ -18,13 +18,13 @@ seriously and appreciate reports that help keep Console and its users safe.
 > See [docs/security/runtime-hardening.md](docs/security/runtime-hardening.md)
 > for the full explanation, current mitigations, and the remediation roadmap.
 
-### Security SOPs
+### Security Standard Operating Procedures (SOPs)
 
 Three living documents cover Console's security posture:
 
 - [**Runtime hardening**](docs/security/runtime-hardening.md) — API auth gap
-  (the #1 priority), secrets handling, SSRF/egress controls, CSRF, security
-  headers, and DoS limits. Start here.
+  (the #1 priority), secrets handling, server-side request forgery (SSRF) and
+  egress controls, CSRF, security headers, and DoS limits. Start here.
 - [**Plugin trust & isolation**](docs/security/plugin-trust.md) — the plugin
   subprocess threat model, AutoMTLS, planned checksum verification
   (SecureConfig), and minimal-env isolation. Operator and contributor

@@ -2,8 +2,8 @@
 
 This document covers the security properties of a running Console instance:
 the HTTP API and dashboard, secrets handling, network egress, CSRF, and
-resource limits. It states what is done today and what is planned, honestly
-and in priority order.
+resource limits. It states what is done today and what is planned, in
+priority order.
 
 Related documents:
 - [Plugin trust & isolation](plugin-trust.md) — the plugin subprocess threat
@@ -23,26 +23,23 @@ providers) is returned verbatim by the API.
 
 This is the most critical open risk in the current codebase.
 
-### What we have done to reduce exposure (✅ v0.2.x)
+### What we have done to reduce exposure (✅ v0.2.1)
 
 The default bind address was changed from `0.0.0.0` to `127.0.0.1`
-(loopback). A default `./console serve` is no longer reachable from the
-network without explicit configuration. Operators who need network access must
-set `CONSOLE_BIND` to the desired address and understand what they are
-exposing.
+(loopback, the default for `CONSOLE_ADDR`: `127.0.0.1:8080`). A default
+`./console serve` is no longer reachable from the network without explicit
+configuration. Operators who need network access must set `CONSOLE_ADDR` to
+the desired address and understand what they are exposing.
 
 ### What you must do until auth lands (operator requirement)
 
 **Do not expose Console directly on a network interface without an
-authenticating layer in front of it.** Acceptable patterns:
-
-- Run on `127.0.0.1` (the default) and access it locally or via an SSH
-  tunnel.
-- Place Console behind a reverse proxy (nginx, Caddy, Traefik) that enforces
-  authentication — HTTP Basic Auth with TLS, OAuth2 via a sidecar, or mTLS
-  client certificates.
-- Run Console inside a private network segment (VPC, internal Kubernetes
-  namespace, Tailscale) where only trusted principals can reach the port.
+authenticating layer in front of it.** Keep it on `127.0.0.1` (the default)
+and reach it locally or via an SSH tunnel, place it behind a reverse proxy
+(nginx, Caddy, Traefik) that enforces authentication — HTTP Basic Auth with
+TLS, OAuth2 via a sidecar, or mTLS client certificates — or run it inside a
+private network segment (VPC, internal Kubernetes namespace, Tailscale) where
+only trusted principals can reach the port.
 
 If Console is bound to a non-loopback address with no authenticating proxy,
 credentials stored in component `config` and all flag and component state are
@@ -71,7 +68,7 @@ record. These values are:
 - Reachable to anyone who can call the API (which, without auth, is anyone
   who can reach the server — see §1).
 
-### Log scrubbing — ✅ Done (v0.2.x)
+### Log scrubbing — ✅ Done (v0.2.1)
 
 URL-bearing error messages (from Slack and webhook plugins, where the webhook
 URL is itself a secret) previously logged the full URL. Credential redaction
@@ -144,38 +141,21 @@ network layer.
 
 ---
 
-## 4. CSRF protection
+## 4. CSRF protection — 🔜 Planned (depends on auth)
 
-### Problem
-
-The dashboard makes state-changing POST requests (toggle a flag, trigger a
-check, add a component) from a browser session. Without CSRF tokens, a
-malicious third-party page can forge those requests and a logged-in user's
-browser will execute them.
-
-### Current mitigations
-
-Because Console currently has no session authentication (§1), the CSRF risk is
-somewhat academic — a CSRF attack requires a session that does not exist. When
-auth is added, CSRF becomes an active risk.
-
-The `SameSite=Lax` cookie attribute on future session cookies will prevent
-most cross-origin POST forgery in modern browsers, but it is not sufficient on
-its own.
-
-### CSRF tokens — 🔜 Planned (depends on auth)
-
-Full CSRF token protection is planned as part of the session auth work. The
-sequence: a per-session CSRF token is generated at login, embedded in every
-form and htmx request header (`X-CSRF-Token`), and validated server-side on
-every state-changing request. This will ship together with — or immediately
-after — the auth feature.
+The dashboard makes state-changing POST requests from a browser session, but
+because Console has no session authentication yet (§1), CSRF is academic
+today — the attack requires a session that does not exist. When auth lands,
+CSRF becomes active. Full token protection ships with the auth work: a
+per-session CSRF token generated at login, embedded in every form and htmx
+request header (`X-CSRF-Token`), validated server-side on every state-changing
+request, backed by `SameSite=Lax` session cookies.
 
 ---
 
 ## 5. Security headers
 
-### ✅ Done (v0.2.x)
+### ✅ Done (v0.2.1)
 
 A security-headers middleware was added to the HTTP server. The following
 headers are set on every response:
@@ -184,11 +164,20 @@ headers are set on every response:
 |---|---|
 | `X-Content-Type-Options` | `nosniff` |
 | `X-Frame-Options` | `DENY` |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
+| `Referrer-Policy` | `no-referrer` |
+| `Content-Security-Policy` | see below |
 
-`Content-Security-Policy` is set to a permissive baseline today because htmx
-is loaded from a CDN (see below). It will be tightened when htmx is vendored.
+`Content-Security-Policy` is already a restrictive CSP with a single CDN
+exception for htmx:
+
+```
+default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'
+```
+
+The only non-`'self'` source is `https://unpkg.com` for the CDN-loaded htmx
+script; that exception will be removed when htmx is vendored (see below).
+
+> `Permissions-Policy` is not set by the middleware today — 🔜 Planned.
 
 ### htmx CDN and CSP — 🔜 Planned
 
@@ -202,7 +191,7 @@ against a tampered embedded asset.
 
 ## 6. DoS and resource limits
 
-### ✅ Done (v0.2.x)
+### ✅ Done (v0.2.1)
 
 Several unbounded resource paths were addressed:
 
@@ -240,8 +229,8 @@ the reverse proxy layer.
 | Secrets in API responses and plaintext at rest | Critical | 🔜 Write-only API + at-rest encryption planned |
 | SSRF via status providers and webhooks | High | 🔜 Private-range-blocking egress client planned |
 | CSRF on dashboard POSTs | High | 🔜 Planned with session auth |
-| Secrets leaking into logs via URL error messages | Medium | ✅ Credential redaction done (v0.2.x) |
-| Unbounded LLM reads / no server timeouts / RunAll fan-out | Medium | ✅ All three bounded (v0.2.x) |
-| Default bind to all interfaces | High | ✅ Changed to loopback by default (v0.2.x) |
-| Security headers | Low | ✅ Headers middleware added (v0.2.x) |
-| htmx from CDN without SRI; weak CSP | Low | 🔜 Vendor + SRI + tighter CSP planned |
+| Secrets leaking into logs via URL error messages | Medium | ✅ Credential redaction done (v0.2.1) |
+| Unbounded LLM reads / no server timeouts / RunAll fan-out | Medium | ✅ All three bounded (v0.2.1) |
+| Default bind to all interfaces | High | ✅ Changed to loopback by default (v0.2.1) |
+| Security headers | Low | ✅ Restrictive headers + CSP middleware added (v0.2.1) |
+| htmx from CDN without SRI | Low | 🔜 Vendor + SRI; drop the CDN CSP exception |

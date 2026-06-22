@@ -4,7 +4,7 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
-## [Unreleased]
+## [0.4.0] - 2026-06-22
 
 ### Plugins
 - **Notifiers** — `console-plugin-discord` (posts each event to a Discord
@@ -143,6 +143,7 @@ Host↔plugin compatibility is governed by the go-plugin handshake
 - Licensed under **AGPL-3.0** with a contributor CLA.
 - Documentation site under `docs/` (GitHub Pages).
 
+[0.4.0]: https://github.com/MooseQuest/console/releases/tag/v0.4.0
 [0.3.1]: https://github.com/MooseQuest/console/releases/tag/v0.3.1
 [0.3.0]: https://github.com/MooseQuest/console/releases/tag/v0.3.0
 [0.2.1]: https://github.com/MooseQuest/console/releases/tag/v0.2.1

@@ -5,7 +5,7 @@
 **A modular, self-hostable control plane for the apps you build — feature flags + status monitoring in one small binary.**
 
 [![CI](https://github.com/MooseQuest/console/actions/workflows/ci.yml/badge.svg)](https://github.com/MooseQuest/console/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v0.3.1-blue)](https://github.com/MooseQuest/console/releases/latest)
+[![Release](https://img.shields.io/badge/release-v0.4.0-blue)](https://github.com/MooseQuest/console/releases/latest)
 [![Go Report Card](https://goreportcard.com/badge/github.com/moosequest/console)](https://goreportcard.com/report/github.com/moosequest/console)
 [![Go](https://img.shields.io/github/go-mod/go-version/MooseQuest/console)](go.mod)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
@@ -23,7 +23,7 @@ It ships with two ways to get an app set up:
 - **Human mode** — an interactive wizard walks you through what to monitor and which flags to create.
 - **AI-Assisted mode** — describe your app in a sentence and an LLM (Claude by default) drafts the plan for you.
 
-> Status: **v0.3.1**. The core engine, API, dashboard, CLI, and onboarding are working and tested. Interfaces may still change before v1.
+> Status: **v0.4.0**. The core engine, API, dashboard, CLI, and onboarding are working and tested. Interfaces may still change before v1.
 
 ## Why Console
 
@@ -47,17 +47,17 @@ zero plugins and zero config (embedded SQLite + the `http` status provider).
 
 ```bash
 # macOS / Linux (pick your os/arch: darwin|linux, arm64|amd64)
-curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.3.1/console_v0.3.1_darwin_arm64.tar.gz
-curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.3.1/SHA256SUMS.txt
+curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.4.0/console_v0.4.0_darwin_arm64.tar.gz
+curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.4.0/SHA256SUMS.txt
 shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # verify integrity
-tar xzf console_v0.3.1_darwin_arm64.tar.gz && cd console_v0.3.1_darwin_arm64
+tar xzf console_v0.4.0_darwin_arm64.tar.gz && cd console_v0.4.0_darwin_arm64
 ./console serve                                     # http://127.0.0.1:8080
 ```
 
 > **macOS:** downloaded binaries are quarantined by Gatekeeper. Clear it with
 > `xattr -dr com.apple.quarantine ./console` (the binaries are not yet notarized).
 
-**Windows (PowerShell):** download `console_v0.3.1_windows_amd64.zip` from the release,
+**Windows (PowerShell):** download `console_v0.4.0_windows_amd64.zip` from the release,
 verify against `SHA256SUMS.txt`, expand it, then run `.\console.exe serve`.
 
 **From source** (needs Go 1.25.11+): `make build` (see [Quickstart](#quickstart)).

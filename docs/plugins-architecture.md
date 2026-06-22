@@ -39,7 +39,7 @@ inherits the host's environment, so provider-specific config reaches it.
 
 ## Plugin catalog
 
-Ten plugins ship today. Each is a `console-plugin-*` binary built from
+Twelve plugins ship today. Each is a `console-plugin-*` binary built from
 `cmd/console-plugin-*`; point the seam's selection variable at its path. The
 "Reads" column lists the provider-specific config the plugin reads from the
 host's environment or, for status providers, from the component's `config` map.
@@ -53,6 +53,8 @@ host's environment or, for status providers, from the component's `config` map.
 | `console-plugin-slack` | notify | `CONSOLE_NOTIFY_PLUGINS` | `CONSOLE_SLACK_WEBHOOK_URL` |
 | `console-plugin-webhook` | notify | `CONSOLE_NOTIFY_PLUGINS` | `CONSOLE_WEBHOOK_URL` (required), `CONSOLE_WEBHOOK_SECRET` (optional; sent as `X-Webhook-Secret`) |
 | `console-plugin-email` | notify | `CONSOLE_NOTIFY_PLUGINS` | `SMTP_HOST` (req), `SMTP_PORT` (587), `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_FROM` (req), `EMAIL_TO` (req, comma-separated) |
+| `console-plugin-discord` | notify | `CONSOLE_NOTIFY_PLUGINS` | `CONSOLE_DISCORD_WEBHOOK_URL` |
+| `console-plugin-pagerduty` | notify | `CONSOLE_NOTIFY_PLUGINS` | `CONSOLE_PAGERDUTY_ROUTING_KEY` (service integration key) |
 | `console-plugin-anthropic` | llm | `CONSOLE_LLM_PLUGIN` | `ANTHROPIC_API_KEY` (req), `CONSOLE_MODEL` (opt) |
 | `console-plugin-openai` | llm | `CONSOLE_LLM_PLUGIN` | `OPENAI_API_KEY` (req), `CONSOLE_MODEL` (opt; default `gpt-4o-mini`) |
 | `console-plugin-ollama` | llm | `CONSOLE_LLM_PLUGIN` | `OLLAMA_HOST` (opt; default `http://localhost:11434`), `CONSOLE_MODEL` (opt; default `llama3.1`; no API key) |
@@ -62,6 +64,13 @@ operational/degraded/down; `sentry` maps the unresolved-issue count for a
 project (`< degraded_count` operational, `≥ down_count` down). For the LLM seam,
 `ollama` needs no API key and talks to a local Ollama server, which makes it the
 easy fully-local option for AI-Assisted onboarding.
+
+Notes on the notifiers: `slack` and `discord` post each event as a single
+colored message via an Incoming/channel Webhook (no bot token). `pagerduty` is a
+paging sink — a component going **down**/**degraded** *triggers* an alert and the
+matching **recovery** *resolves* it, correlated by a per-component dedup key so
+PagerDuty groups the pair into one incident; flag-change events are not incidents
+and are skipped.
 
 > **Build first.** All the examples below assume you have built the host and the
 > plugin binaries once: `make build && make plugins` (→ `./console` and
@@ -89,11 +98,17 @@ the host launches each and registers it as a sink, so you can run several at
 once. Each reads its own config from the environment it inherits:
 
 ```bash
-# Run all three sinks at once:
-export CONSOLE_NOTIFY_PLUGINS="$PWD/bin/console-plugin-slack,$PWD/bin/console-plugin-webhook,$PWD/bin/console-plugin-email"
+# Run several sinks at once:
+export CONSOLE_NOTIFY_PLUGINS="$PWD/bin/console-plugin-slack,$PWD/bin/console-plugin-discord,$PWD/bin/console-plugin-pagerduty"
 
 # Slack — posts to an Incoming Webhook:
 export CONSOLE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+
+# Discord — posts to a channel Webhook:
+export CONSOLE_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+
+# PagerDuty — triggers on down/degraded, resolves on recovery (Events API v2):
+export CONSOLE_PAGERDUTY_ROUTING_KEY="R0ABCD1234567890..."
 
 # Webhook — POSTs each event as JSON; optional shared secret sent as X-Webhook-Secret:
 export CONSOLE_WEBHOOK_URL="https://example.com/console-events"

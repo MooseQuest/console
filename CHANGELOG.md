@@ -4,6 +4,17 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [Unreleased]
+
+### Plugins
+- **Notifiers** — `console-plugin-discord` (posts each event to a Discord
+  channel Webhook as a colored embed; no bot token, reads
+  `CONSOLE_DISCORD_WEBHOOK_URL`) and `console-plugin-pagerduty` (PagerDuty Events
+  API v2 — a component going down/degraded *triggers* an alert and the matching
+  recovery *resolves* it, correlated by a per-component dedup key so the pair
+  becomes one incident; flag changes are skipped; reads
+  `CONSOLE_PAGERDUTY_ROUTING_KEY`). The notifier seam now ships five sinks.
+
 ## [0.3.1] - 2026-06-20
 
 Cleanup + hardening release.

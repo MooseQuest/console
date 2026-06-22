@@ -136,7 +136,7 @@ A **snapshot** aggregates the latest check per component into one overall health
 
 ### Notifications
 
-Console emits **events** on meaningful changes — a component going **down**, **degraded**, or **recovered**, and any **flag change** — and fans them out to **notifier plugins** listed in `CONSOLE_NOTIFY_PLUGINS` (you can run several at once). Three ship today: `console-plugin-slack` (Incoming Webhook, no bot token), `console-plugin-webhook` (POSTs each event as JSON, with an optional `X-Webhook-Secret`), and `console-plugin-email` (SMTP). Point `CONSOLE_NOTIFY_PLUGINS` at the sinks you want and you'll get alerts when a monitored service breaks or a flag is toggled.
+Console emits **events** on meaningful changes — a component going **down**, **degraded**, or **recovered**, and any **flag change** — and fans them out to **notifier plugins** listed in `CONSOLE_NOTIFY_PLUGINS` (you can run several at once). Five ship today: `console-plugin-slack` and `console-plugin-discord` (Incoming/channel Webhook, no bot token), `console-plugin-webhook` (POSTs each event as JSON, with an optional `X-Webhook-Secret`), `console-plugin-email` (SMTP), and `console-plugin-pagerduty` (Events API v2 — triggers on down/degraded, resolves on recovery). Point `CONSOLE_NOTIFY_PLUGINS` at the sinks you want and you'll get alerts when a monitored service breaks or a flag is toggled.
 
 ## CLI
 
@@ -212,7 +212,7 @@ Plugin selection (each points at a `console-plugin-*` binary; unset = built-in d
 |---|---|
 | `CONSOLE_STORE_PLUGIN` | storage backend (e.g. `console-plugin-postgres`); replaces built-in SQLite |
 | `CONSOLE_STATUS_PLUGINS` | status providers (comma/space list: `console-plugin-cloudflare`, `-heroku`, `-sentry`); `http` is built-in |
-| `CONSOLE_NOTIFY_PLUGINS` | notifier sinks (comma/space list: `console-plugin-slack`, `-webhook`, `-email`) |
+| `CONSOLE_NOTIFY_PLUGINS` | notifier sinks (comma/space list: `console-plugin-slack`, `-discord`, `-webhook`, `-email`, `-pagerduty`) |
 | `CONSOLE_LLM_PLUGIN` | LLM for AI-Assisted onboarding (one of `console-plugin-anthropic`, `-openai`, `-ollama`); unset = AI mode off |
 
 Read by plugins (inherited from the host environment; status providers also read per-component `config`):
@@ -224,6 +224,8 @@ Read by plugins (inherited from the host environment; status providers also read
 | `HEROKU_API_KEY` | `console-plugin-heroku` (default token) |
 | `SENTRY_AUTH_TOKEN` | `console-plugin-sentry` (default token) |
 | `CONSOLE_SLACK_WEBHOOK_URL` | `console-plugin-slack` |
+| `CONSOLE_DISCORD_WEBHOOK_URL` | `console-plugin-discord` |
+| `CONSOLE_PAGERDUTY_ROUTING_KEY` | `console-plugin-pagerduty` (service integration key) |
 | `CONSOLE_WEBHOOK_URL`, `CONSOLE_WEBHOOK_SECRET` | `console-plugin-webhook` (secret optional) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_FROM`, `EMAIL_TO` | `console-plugin-email` |
 | `ANTHROPIC_API_KEY`, `CONSOLE_MODEL` | `console-plugin-anthropic` |
@@ -252,7 +254,7 @@ export CONSOLE_DB="postgres://user:pass@host:5432/console?sslmode=require"
 export CONSOLE_STATUS_PLUGINS="$PWD/bin/console-plugin-cloudflare,$PWD/bin/console-plugin-heroku,$PWD/bin/console-plugin-sentry"
 export CLOUDFLARE_API_TOKEN=... HEROKU_API_KEY=... SENTRY_AUTH_TOKEN=...
 
-# Notifiers (comma/space list — Slack, webhook, email):
+# Notifiers (comma/space list — Slack, Discord, webhook, email, PagerDuty):
 export CONSOLE_NOTIFY_PLUGINS="$PWD/bin/console-plugin-slack,$PWD/bin/console-plugin-webhook,$PWD/bin/console-plugin-email"
 export CONSOLE_SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 

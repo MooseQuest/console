@@ -46,6 +46,7 @@ Commands:
   status      Manage status components (list, add, check, snapshot)
   onboard     Onboard an app into Console (Human or AI-Assisted mode)
   qr          Show a QR code to open the dashboard on your phone
+  mcp         Serve Console over the Model Context Protocol (for AI agents)
   version     Print the version
   help        Show this help
 
@@ -91,6 +92,8 @@ func run(args []string) error {
 		return cmdOnboard(rest, cfg)
 	case "qr":
 		return cmdQR(rest, cfg)
+	case "mcp":
+		return cmdMCP(rest, cfg)
 	case "version", "--version", "-v":
 		fmt.Printf("console %s\n", resolveVersion())
 		return nil

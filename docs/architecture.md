@@ -27,7 +27,7 @@ together and why.
 ## Package layout
 
 ```text
-cmd/console/        CLI entrypoint (serve, flag, status, onboard, qr, version)
+cmd/console/        CLI entrypoint (serve, flag, status, onboard, qr, mcp, version)
 cmd/console-plugin-*/    the 10 out-of-process plugin executables (store,
                     status, notify, and llm providers — see plugin catalog)
 internal/core/      domain types — the shared vocabulary (Flag, Subject,
@@ -50,6 +50,8 @@ internal/onboard/   Human + AI-Assisted onboarding → a Plan (Apply / Guide)
 internal/server/    HTTP API + server-rendered htmx dashboard
 internal/web/       embedded templates + static assets (CSS, vendored JS)
 internal/app/       composition root — wires everything into one App
+internal/mcp/       MCP server (a consumer surface) — tools over a Backend
+                    with in-process-engine and HTTP-client implementations
 proto/              the per-seam gRPC contracts (store/status/notify/llm)
 docs/               this documentation site (served via GitHub Pages)
 ```

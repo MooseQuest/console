@@ -195,6 +195,18 @@ console onboard -ai -name "Acme" -desc "A Rails store with a Sidekiq worker and 
 
 Both modes produce a plan (components + flags), let you apply it, and can emit a Markdown setup guide. AI mode uses whichever LLM plugin `CONSOLE_LLM_PLUGIN` points at — `console-plugin-anthropic` (Claude), `console-plugin-openai` (GPT, default `gpt-4o-mini`), or `console-plugin-ollama` (local, no API key) — one provider at a time.
 
+## MCP server (for AI agents)
+
+`console mcp` serves Console over the [Model Context Protocol](https://modelcontextprotocol.io) on stdio, so an AI agent — Claude Desktop, Claude Code, or any MCP host — can operate an instance directly. Point your MCP client at the binary:
+
+```jsonc
+{ "mcpServers": { "console": { "command": "console", "args": ["mcp"] } } }
+```
+
+That's a **read-only** server (list/get flags and components, `evaluate_flag`, `health_snapshot`, `check_component`). Add `-write` to also expose `create_flag`, `set_flag_enabled`, `delete_flag`, `add_component`, and `delete_component` (the `delete_*` tools are annotated destructive). It also serves `console://health` and `console://flags` resources and an `onboard` prompt.
+
+By default it drives the engines **in-process** (no running server needed); `console mcp -addr 127.0.0.1:8080` instead targets a running `console serve`. Console has no built-in auth, so writes are opt-in and remote (`-addr`) use belongs behind loopback or an authenticating proxy. See [docs/mcp.md](docs/mcp.md).
+
 ## Configuration
 
 All configuration is via environment variables (CLI flags override per-command):
@@ -300,6 +312,7 @@ A full docs site lives in [`docs/`](docs/) (served via GitHub Pages from `docs/i
 - [Notifications](docs/notifications.md)
 - [Onboarding (Human + AI-Assisted)](docs/onboarding.md)
 - [HTTP API reference](docs/api.md)
+- [MCP server (for AI agents)](docs/mcp.md)
 - [Architecture](docs/architecture.md)
 - [Plugin architecture (out-of-process gRPC)](docs/plugins-architecture.md)
 - [Writing plugins](docs/plugins-architecture.md#writing-a-plugin)

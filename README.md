@@ -27,7 +27,7 @@ It ships with two ways to get an app set up:
 
 ## Why Console
 
-- **One binary, no dependencies.** Pure-Go SQLite (no cgo) means a truly static binary you can drop on any host. Point it at Postgres later when you outgrow a single node.
+- **One binary, cgo-free.** Pure-Go SQLite (no cgo) means a truly static binary you can drop on any host. Point it at Postgres later when you outgrow a single node.
 - **Modular by design.** Four seams — storage, status providers, notifiers, and LLM providers — are **out-of-process plugins** the host launches over gRPC, so you add or swap a capability by dropping a `console-plugin-*` binary, no core recompile.
 - **API-first.** The dashboard is just a client of the same HTTP API your apps and SDKs use.
 - **Deterministic flag evaluation.** The same `(flag, subject)` always resolves the same way, with a stable percentage rollout you can reason about.
@@ -146,6 +146,7 @@ console flag        list | get | create | enable | disable | delete | eval
 console status      list | add | check | snapshot | delete
 console onboard     Onboard an app (Human or AI-Assisted mode)
 console qr          Print a QR code to open the dashboard on your phone
+console mcp         Serve Console over the Model Context Protocol (for AI agents)
 console version
 ```
 
@@ -251,8 +252,8 @@ launches and talks to over gRPC (the Terraform model), so you add a capability b
 dropping a binary, with no core recompile. **All four seams** (storage, status,
 notify, LLM) are plugins, and most have several to choose from; the core ships
 with sensible built-in defaults (SQLite storage, the `http` status provider) so
-it runs with zero plugins. Ten ship today: **store** — `postgres`; **status** —
-`cloudflare`, `heroku`, `sentry`; **notify** — `slack`, `webhook`, `email`;
+it runs with zero plugins. Twelve ship today: **store** — `postgres`; **status** —
+`cloudflare`, `heroku`, `sentry`; **notify** — `slack`, `discord`, `webhook`, `email`, `pagerduty`;
 **llm** — `anthropic`, `openai`, `ollama`.
 
 ```bash
@@ -283,8 +284,8 @@ and [docs/development.md](docs/development.md) for building and running on macOS
 ## Architecture
 
 ```
-cmd/console/             CLI (serve, flag, status, onboard, qr, version)
-cmd/console-plugin-*/    10 out-of-process plugin binaries (store/status/notify/llm)
+cmd/console/             CLI (serve, flag, status, onboard, qr, mcp, version)
+cmd/console-plugin-*/    12 out-of-process plugin binaries (store/status/notify/llm)
 internal/core/           domain types (Flag, Subject, Component, Health)
 internal/config/         environment + flag configuration
 internal/store/          Store interface + sqlite backend (pluggable)
@@ -297,6 +298,7 @@ internal/plugin/         gRPC plugin host (launches console-plugin-* over gRPC)
 internal/server/         HTTP API + server-rendered htmx dashboard
 internal/web/            embedded dashboard assets/templates
 internal/app/            composition root
+internal/mcp/            MCP server (a consumer surface) — tools over a Backend
 docs/                    documentation site (GitHub Pages)
 ```
 

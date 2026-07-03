@@ -53,6 +53,20 @@ the dashboard and API key or token authentication for the JSON API. The design
 is not yet started. Until it ships, the reverse-proxy pattern above is the
 only supported hardening posture.
 
+### The MCP server surface
+
+The `console mcp` subcommand is a second entry point to the same data. By
+default it serves over **stdio**, so its trust boundary is simply the local user
+who launched the subprocess. Two flags change the exposure:
+
+- `-write` registers the mutating tools (create/toggle/delete flags and
+  components). It is **off by default** — without it the server is read- and
+  evaluation-only.
+- `-addr host:port` points the server at a running `console serve` over its JSON
+  API instead of the local store. This **inherits the authentication gap above**:
+  target a loopback address or an authenticating proxy, exactly as you would the
+  HTTP API directly.
+
 ---
 
 ## 2. Secrets handling
@@ -70,8 +84,9 @@ record. These values are:
 
 ### Log scrubbing — ✅ Done (v0.2.1)
 
-URL-bearing error messages (from Slack and webhook plugins, where the webhook
-URL is itself a secret) previously logged the full URL. Credential redaction
+URL-bearing error messages (from URL-/credential-bearing notify sinks — Slack,
+Discord, webhook, and PagerDuty — where the webhook URL or routing key is itself
+a secret) previously logged the full URL. Credential redaction
 is now applied before logging: webhook URLs are truncated to their scheme and
 host, and the path (which contains the token) is replaced with `[redacted]`.
 
@@ -110,7 +125,8 @@ Console makes outbound HTTP calls on behalf of operator configuration:
 - Status providers make HTTP requests to external services based on the
   component's `url` field (the built-in `http` provider) or to provider APIs
   (Cloudflare, Heroku, Sentry plugins).
-- Notify plugins POST to webhook URLs and Slack incoming webhook URLs.
+- Notify plugins POST to external endpoints: Slack and Discord incoming/channel
+  webhooks, arbitrary webhook URLs, and the PagerDuty Events API.
 
 None of these outbound calls currently filter private IP ranges or follow
 redirect policies. An operator (or an attacker who has write access to the
@@ -183,7 +199,7 @@ script; that exception will be removed when htmx is vendored (see below).
 The dashboard loads htmx from `https://unpkg.com`. Once htmx is vendored into
 `internal/web/static/` (see [supply-chain.md](supply-chain.md)), the CSP will
 be updated to disallow external script sources and inline scripts. The `<script>`
-tag will include a `integrity=` SRI hash for belt-and-suspenders protection
+tag will include an `integrity=` SRI hash for belt-and-suspenders protection
 against a tampered embedded asset.
 
 ---

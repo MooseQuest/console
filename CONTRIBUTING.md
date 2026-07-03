@@ -1,6 +1,6 @@
 # Contributing to Console
 
-Thanks for your interest in Console (v0.3.0). It's built to be extended — new
+Thanks for your interest in Console (v0.5.0). It's built to be extended — new
 storage backends, status providers, notifiers, and LLM providers all plug in as
 out-of-process `console-plugin-*` binaries. This guide covers how to build, test,
 and land changes.
@@ -57,8 +57,8 @@ isn't available), see [docs/development.md](docs/development.md).
 ## Repository layout
 
 ```text
-cmd/console/             CLI entrypoint (serve, flag, status, onboard, qr, version)
-cmd/console-plugin-*/    10 out-of-process plugin binaries (store/status/notify/llm)
+cmd/console/             CLI entrypoint (serve, flag, status, onboard, qr, mcp, version)
+cmd/console-plugin-*/    12 out-of-process plugin binaries (store/status/notify/llm)
 internal/core/           domain types (Flag, Subject, Evaluation, Component, Check,
                          Health) + sentinel errors; depends on nothing else
 internal/config/         runtime configuration (env vars + defaults)

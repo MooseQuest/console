@@ -165,7 +165,7 @@ Sources: [FCL home — fcl.dev](https://fcl.dev/) · [Flipt LICENSE — GitHub](
 - **Patent grant:** Not specified.
 - **SaaS/network use:** The most restrictive possible treatment.
 - **OSI status:** Rejected. MongoDB withdrew its submission in 2019 after OSI indicated it would not approve.
-- **Real-world outcome:** Redis adopted SSPL + RSALv2 in March 2024. Within months, the Linux Foundation backed a community fork (Valkey). AWS, Google Cloud, and others moved to Valkey. Redis subsequently reversed course (2025).
+- **Real-world outcome:** Redis adopted SSPL + Redis Source Available License v2 (RSALv2) in March 2024. Within months, the Linux Foundation backed a community fork (Valkey). AWS, Google Cloud, and others moved to Valkey. Redis subsequently reversed course (2025).
 - **For Console:** The strongest possible cloud-provider deterrent, but with the highest adoption cost and the highest risk of community fork. Not recommended unless Console becomes a dominant infrastructure tool with significant cloud-provider free-rider behavior.
 
 Sources: [MongoDB SSPL FAQ](https://www.mongodb.com/legal/licensing/server-side-public-license/faq) · [Redis SSPL + RSALv2 announcement](https://redis.io/blog/redis-adopts-dual-source-available-licensing/) · [Redis Valkey fork coverage](https://www.softwareseni.com/the-redis-valkey-fork-how-enterprises-rapidly-migrated-after-the-sspl-license-change/) · [Redis reversal](https://kuray.dev/blog/backend-development/rediss-u-turn-abandoning-sspl-and-returning-to-open-source-202505)
@@ -316,7 +316,7 @@ The operator should identify which primary intent applies, then use the matrix b
 | **Maximize adoption** — get Console widely used, build ecosystem, trust, integrations. Commercial monetization is secondary or later. | MIT or Apache-2.0 | Easiest for any developer/company to adopt. No cloud-hosting protection. Closed-source forks permitted. Patent grant is a reason to prefer Apache-2.0 over MIT. | "What are the implications of switching from MIT to Apache-2.0 now, while contributions are minimal?" |
 | **Protect a future hosted/commercial edition** — MooseQuest plans to sell a SaaS or enterprise edition and does not want competitors to host modified Console without contributing back. | AGPL-3.0 + CLA | Requires drafting and enforcing a CLA. Contributors will see the CLA before opening a PR. Reduces casual contribution. AGPL is blocked by some enterprise legal policies but is well-understood in the infra space. | "Draft a CLA that assigns or sublicenses contributions to MooseQuest LLC. What is the scope and can it survive relicensing later?" |
 | **Protect commercial features in a self-hosted binary** — Console may gain paid commercial features that users run themselves, and MooseQuest needs to prevent someone from forking the binary and bypassing the paywall. | FCL 1.0 (converts to Apache-2.0/MIT after 2 years) or FSL 1.1 | Not OSI-approved; blocked by distros and many enterprise policies. FCL specifically addresses self-hosted feature gating, which FSL does not. Converts to open source after 2 years, which limits long-term lock-in. | "Is FCL enforceable in our jurisdiction? Does the 2-year window align with our commercial roadmap?" |
-| **Keep it simple** — No commercial edition planned; MooseQuest just wants to ship an OSS tool cleanly. | MIT (the pre-2026-06-15 license) or Apache-2.0 | Maximum simplicity. The only upgrade to consider is Apache-2.0 for the patent grant. | "Should we upgrade to Apache-2.0 now? Any concerns with our existing single external dependency (modernc.org/sqlite)?" |
+| **Keep it simple** — No commercial edition planned; MooseQuest just wants to ship an OSS tool cleanly. | MIT (the pre-2026-06-15 license) or Apache-2.0 | Maximum simplicity. The only upgrade to consider is Apache-2.0 for the patent grant. | "Should we upgrade to Apache-2.0 now? Any concerns with our external dependencies (modernc.org/sqlite and the other pure-Go modules we now vendor)?" |
 | **Prevent cloud providers specifically (maximum protection)** | SSPL v1 | Evidence from MongoDB and Redis: high probability of community fork and loss of Linux distribution packaging. OSI-rejected, which triggers corporate policy blocks. Not recommended without large market share and legal budget for enforcement. | "Given the Redis/MongoDB precedent, is SSPL viable for a tool still early (0.x)? What are the enforcement realities?" |
 | **Time-limited protection converting to OSS** — MooseQuest wants protection now but is comfortable with the code becoming MIT/Apache-2.0 in 2 years. | FSL 1.1 or BSL 1.1 (with custom Additional Use Grant) | FSL is cleaner than BSL (less custom drafting). BSL requires writing the Additional Use Grant, which needs an attorney. Neither is OSI-approved. Used by Sentry (FSL) and Flipt (FCL). | "Is 2 years sufficient protection for Console's commercial roadmap? What happens to contributions made during the proprietary period when the code converts?" |
 
@@ -343,7 +343,7 @@ The operator should identify which primary intent applies, then use the matrix b
 
 | Item | Estimated cost | Notes |
 |---|---|---|
-| Changing LICENSE file (MIT → Apache-2.0) | $0 filing fee | Attorney review: 0.5–1 hr to confirm no issues with existing dependency (modernc.org/sqlite under MIT) |
+| Changing LICENSE file (MIT → Apache-2.0) | $0 filing fee | Attorney review: 0.5–1 hr to confirm no issues with existing dependencies (modernc.org/sqlite under MIT, plus the other pure-Go modules) |
 | Changing LICENSE file (MIT → AGPL-3.0) | $0 filing fee | Attorney: 1–3 hrs to advise on CLA + relicensing. CLA drafting: 2–5 hrs attorney time. |
 | CLA assistant setup | $0 (SAP hosted service) | Requires a CLA document (attorney-drafted). |
 | Copyright registration (optional, strengthens enforcement) | $65 federal filing fee | [US Copyright Office](https://www.copyright.gov/registration/) |
@@ -355,7 +355,7 @@ The operator should identify which primary intent applies, then use the matrix b
 
 **There are no hard regulatory deadlines** governing the license choice. However, there are strategic timing considerations:
 
-1. **Before significant external contributions:** The cleanest time to adopt a CLA is *before* any third-party contributors merge code. Once external contributors have contributed under MIT (the pre-2026-06-15 license), relicensing requires their consent or a legal opinion on what MIT contributions can be relicensed to under AGPL. The repo is at v0.3.0 and still early (0.x) — this is a low-complexity moment to make this decision.
+1. **Before significant external contributions:** The cleanest time to adopt a CLA is *before* any third-party contributors merge code. Once external contributors have contributed under MIT (the pre-2026-06-15 license), relicensing requires their consent or a legal opinion on what MIT contributions can be relicensed to under AGPL. The repo is at v0.5.0 and still early (0.x) — this is a low-complexity moment to make this decision.
 
 2. **Copyright registration window:** Registration before any infringement occurs (or within 3 months of first publication) is required to claim statutory damages and attorney's fees in US copyright litigation. For a 0.x project this is not urgent, but if enforcement is ever a goal, registration should happen before the tool gains wide adoption. Source: [17 U.S.C. § 412](https://www.copyright.gov/title17/92chap4.html)
 
@@ -383,7 +383,7 @@ The following questions are research output — not legal advice. Bring these to
 
 8. **Relicensing from AGPL to something else later:** If Console starts at AGPL and the CLA grants sublicense rights, what is the process and legal risk of later changing the public license to FSL, BSL, or back to permissive? What consent is needed?
 
-9. **License compatibility with modernc.org/sqlite:** The only external dependency is `modernc.org/sqlite`. What is its current license, and is it compatible with AGPL-3.0, FSL, and FCL?
+9. **License compatibility with dependencies:** Console's direct dependencies are all pure-Go — `modernc.org/sqlite`, `hashicorp/go-plugin`, `google.golang.org/grpc` and `protobuf`, `jackc/pgx`, `mdp/qrterminal`, and `github.com/modelcontextprotocol/go-sdk`. What are their licenses, and are they compatible with AGPL-3.0, FSL, and FCL?
 
 10. **Open-core structure:** If a future "Console Enterprise" edition ships additional features, should those features live in a separate repository, a separate directory with a separate LICENSE file, or be gated purely at runtime? What are the IP and licensing implications of each approach?
 

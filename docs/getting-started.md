@@ -20,10 +20,10 @@ bundle ships the `console` binary plus all plugins.
 
 ```bash
 # macOS / Linux (pick your os/arch: darwin|linux, arm64|amd64)
-curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.3.0/console_v0.3.0_darwin_arm64.tar.gz
-curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.3.0/SHA256SUMS.txt
+curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.5.0/console_v0.5.0_darwin_arm64.tar.gz
+curl -sSLO https://github.com/MooseQuest/console/releases/download/v0.5.0/SHA256SUMS.txt
 shasum -a 256 -c SHA256SUMS.txt --ignore-missing   # verify integrity
-tar xzf console_v0.3.0_darwin_arm64.tar.gz && cd console_v0.3.0_darwin_arm64
+tar xzf console_v0.5.0_darwin_arm64.tar.gz && cd console_v0.5.0_darwin_arm64
 ```
 
 **From source.** Console needs **Go 1.25.11+** to build. There is no cgo dependency —
@@ -167,5 +167,6 @@ skipped, not errors). `-guide <path>` renders the plan as Markdown. See the
 - [Feature flags](flags.md) — scopes, rollout, determinism, multivariate.
 - [Status monitoring](status.md) — components, providers, snapshots.
 - [HTTP API](api.md) — integrate your apps (curl + `fetch` examples).
+- [MCP server](mcp.md) — operate Console from an AI agent (`console mcp`).
 - [Architecture](architecture.md) — how the pieces fit together.
 - [Plugin architecture](plugins-architecture.md) — add a storage / status / notify / LLM backend.

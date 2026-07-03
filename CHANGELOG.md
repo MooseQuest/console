@@ -4,6 +4,19 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [Unreleased]
+
+### Docs
+- Documentation-accuracy pass (per `docs/librarian/remediation-2026-07-02.md`):
+  corrected the plugin catalog (12 plugins; notify seam's five sinks now include
+  Discord and PagerDuty) across the README, architecture, and notifications docs;
+  added the `mcp` subcommand to CLI listings; refreshed stale version references
+  (getting-started download links, CONTRIBUTING, license analysis → v0.5.0);
+  reframed the "only dependency is sqlite" claims to the current pure-Go,
+  cgo-free dependency set; corrected the plugin env-inheritance mechanism and the
+  notifier egress/secret enumerations in the security SOPs; and added a
+  `CONTRIBUTORS.md` (previously referenced but missing).
+
 ## [0.5.0] - 2026-07-02
 
 ### Added

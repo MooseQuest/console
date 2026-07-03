@@ -4,7 +4,7 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
-## [Unreleased]
+## [0.5.0] - 2026-07-02
 
 ### Added
 - **MCP server** — a new `console mcp` subcommand serves Console over the Model
@@ -160,6 +160,7 @@ Host↔plugin compatibility is governed by the go-plugin handshake
 - Licensed under **AGPL-3.0** with a contributor CLA.
 - Documentation site under `docs/` (GitHub Pages).
 
+[0.5.0]: https://github.com/MooseQuest/console/releases/tag/v0.5.0
 [0.4.0]: https://github.com/MooseQuest/console/releases/tag/v0.4.0
 [0.3.1]: https://github.com/MooseQuest/console/releases/tag/v0.3.1
 [0.3.0]: https://github.com/MooseQuest/console/releases/tag/v0.3.0

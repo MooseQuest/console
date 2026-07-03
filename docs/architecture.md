@@ -28,7 +28,7 @@ together and why.
 
 ```text
 cmd/console/        CLI entrypoint (serve, flag, status, onboard, qr, mcp, version)
-cmd/console-plugin-*/    the 10 out-of-process plugin executables (store,
+cmd/console-plugin-*/    the 12 out-of-process plugin executables (store,
                     status, notify, and llm providers — see plugin catalog)
 internal/core/      domain types — the shared vocabulary (Flag, Subject,
                     Evaluation, Component, Check, Health) + sentinel errors.
@@ -41,7 +41,7 @@ internal/flags/     flag engine — deterministic evaluation over a FlagStore
 internal/status/    status engine + the built-in http Provider
 internal/status/{cloudflare,heroku,sentry}/   plugin status providers
 internal/notify/    Notifier interface + Dispatcher (the notify seam)
-internal/notify/{slack,webhook,email}/   plugin notifier sinks
+internal/notify/{slack,discord,webhook,email,pagerduty}/   plugin notifier sinks
 internal/llm/       LLM Provider interface (provider.go)
 internal/llm/{anthropic,openai,ollama}/   plugin LLM implementations
 internal/plugin/    out-of-process plugin host: loaders, Serve helpers, and the

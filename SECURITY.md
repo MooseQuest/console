@@ -24,7 +24,8 @@ Three living documents cover Console's security posture:
 
 - [**Runtime hardening**](docs/security/runtime-hardening.md) — API auth gap
   (the #1 priority), secrets handling, server-side request forgery (SSRF) and
-  egress controls, CSRF, security headers, and DoS limits. Start here.
+  egress controls, cross-site request forgery (CSRF), security headers, and DoS
+  limits. Start here.
 - [**Plugin trust & isolation**](docs/security/plugin-trust.md) — the plugin
   subprocess threat model, AutoMTLS, planned checksum verification
   (SecureConfig), and minimal-env isolation. Operator and contributor

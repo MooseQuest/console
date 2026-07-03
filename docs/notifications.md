@@ -2,9 +2,9 @@
 
 Console doesn't just observe — it can tell you when something changes. The flag
 and status engines emit **events**, and a **dispatcher** fans each event out to
-every registered **notifier**. Three notifiers ship as out-of-process plugins —
-Slack, webhook, and email — each a `console-plugin-*` binary listed in
-`CONSOLE_NOTIFY_PLUGINS`.
+every registered **notifier**. Five notifiers ship as out-of-process plugins —
+Slack, Discord, webhook, email, and PagerDuty — each a `console-plugin-*` binary
+listed in `CONSOLE_NOTIFY_PLUGINS`.
 
 - [Events](#events)
 - [The Slack notifier plugin](#the-slack-notifier-plugin)
@@ -50,10 +50,13 @@ green for recovered, indigo for flag changes) titled with the component/flag and
 a short message. When no notifier plugin is configured, no sink is registered and
 the engines skip emission entirely (including the extra read it would cost).
 
-> Slack isn't the only sink. Two more notifiers ship as plugins:
+> Slack isn't the only sink. Four more notifiers ship as plugins:
+> `console-plugin-discord` (a channel Webhook, like Slack),
 > `console-plugin-webhook` (POSTs each event as JSON, with an optional
-> `X-Webhook-Secret`) and `console-plugin-email` (SMTP). List the ones you want
-> in `CONSOLE_NOTIFY_PLUGINS` — they run side by side. See
+> `X-Webhook-Secret`), `console-plugin-email` (SMTP), and
+> `console-plugin-pagerduty` (Events API v2 — triggers on down/degraded,
+> resolves on recovery). List the ones you want in `CONSOLE_NOTIFY_PLUGINS` —
+> they run side by side. See
 > [plugin architecture](plugins-architecture.md) for the full catalog and config.
 
 ## How emission works

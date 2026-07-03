@@ -118,9 +118,11 @@ deployment, and run them from a directory with restricted write permissions
 
 ### Minimal environment passed to plugins — 🔜 Planned
 
-Today the host passes `os.Environ()` to each plugin subprocess. The planned
-change is to build a minimal, explicitly-enumerated env that contains only the
-variables the plugin is known to need, using go-plugin's `Cmd.Env` field.
+Today the host launches each plugin with `exec.Command(path)` and leaves
+`Cmd.Env` unset, so the subprocess implicitly inherits the host's full
+environment. The planned change is to build a minimal, explicitly-enumerated env
+that contains only the variables the plugin is known to need, by setting
+go-plugin's `Cmd.Env` field.
 
 This limits credential blast radius: a compromised `console-plugin-slack`
 binary would only see `CONSOLE_SLACK_WEBHOOK_URL`, not

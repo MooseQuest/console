@@ -38,6 +38,13 @@ Every new direct dependency must clear four questions before merging:
 Document the justification in the PR description. Reviewers should reject
 additions that don't clear all four gates.
 
+Console's direct dependencies are deliberately few and all pure-Go, so the
+binary stays cgo-free and statically linkable: `modernc.org/sqlite` (default
+store), `hashicorp/go-plugin` with `google.golang.org/grpc` and `protobuf` (the
+plugin host), `jackc/pgx` (Postgres plugin), `mdp/qrterminal` (the `qr` command),
+and `github.com/modelcontextprotocol/go-sdk` (the `console mcp` server, added in
+v0.5.0). `govulncheck` (below) scans the whole graph, transitive included.
+
 ### `go.sum` integrity and `-mod=readonly`
 
 `go.sum` records the cryptographic hash of every module zip that the build has
@@ -110,7 +117,7 @@ within 48 hours.
 ## Pinning GitHub Actions to commit SHAs
 
 Actions referenced in `.github/workflows/` are pinned to full commit SHAs
-(`uses: actions/checkout@abc1234...`) rather than floating tags (`@v4`). This
+(`uses: actions/checkout@abc1234...`) rather than floating tags (`@v6`). This
 prevents a compromised or overwritten tag from injecting code into CI without
 a visible diff.
 
@@ -118,7 +125,7 @@ The policy:
 
 - All `uses:` lines in workflow files must reference a full 40-character SHA.
 - The human-readable tag is kept as a comment on the same line
-  (`# v4.2.2`) so it is clear which tagged release the SHA corresponds to.
+  (`# v6.0.3`) so it is clear which tagged release the SHA corresponds to.
 - Dependabot's `github-actions` config keeps these SHAs current.
 - Do not add new workflow steps with floating tags; Dependabot will not pin
   them automatically on first add.
@@ -148,7 +155,7 @@ Release tags are signed with the maintainer's GPG key. Verify before building
 from a tag:
 
 ```bash
-git tag -v v0.3.0
+git tag -v v0.5.0
 ```
 
 ### Release artifact checksums

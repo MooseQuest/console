@@ -4,6 +4,23 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [Unreleased]
+
+### Added
+- **MCP server** — a new `console mcp` subcommand serves Console over the Model
+  Context Protocol (stdio), so an AI agent (Claude Desktop, Claude Code, or any
+  MCP host) can operate an instance: list and evaluate feature flags, read
+  component health, and — with `-write` — create, toggle, and delete flags and
+  components (`delete_*` annotated destructive). Also exposes `console://health`
+  and `console://flags` resources and an `onboard` prompt. By default it drives
+  the engines in-process (no running server); `-addr host:port` instead targets
+  a running `console serve`. See [docs/mcp.md](docs/mcp.md).
+
+### Changed
+- Second direct dependency added: `github.com/modelcontextprotocol/go-sdk`
+  (pure-Go; the binary stays cgo-free and statically linkable). `modernc.org/sqlite`
+  remains the only other direct dependency.
+
 ## [0.4.0] - 2026-06-22
 
 ### Plugins

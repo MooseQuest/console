@@ -40,6 +40,18 @@ It ships with two ways to get an app set up:
 
 ## Install
 
+**Docker** (fastest — one command, nothing to install):
+
+```bash
+docker run --rm -p 8080:8080 ghcr.io/moosequest/console:latest
+```
+
+Open <http://localhost:8080>. The multi-arch image (`amd64` + `arm64`) is ~20 MB,
+starts in milliseconds, and runs the dashboard + API with the built-in SQLite
+store — no config. Add `-v console-data:/data` to persist state, or use
+[`docker-compose.yml`](docker-compose.yml). Also on Docker Hub as
+`moosequest/console`. Full guide: [docs/docker.md](docs/docker.md).
+
 **Prebuilt binaries** (no Go toolchain needed) — grab the bundle for your platform
 from the [latest release](https://github.com/MooseQuest/console/releases/latest).
 Each bundle contains the `console` binary **plus all plugins**; the core runs with
@@ -60,7 +72,7 @@ tar xzf console_v0.5.0_darwin_arm64.tar.gz && cd console_v0.5.0_darwin_arm64
 **Windows (PowerShell):** download `console_v0.5.0_windows_amd64.zip` from the release,
 verify against `SHA256SUMS.txt`, expand it, then run `.\console.exe serve`.
 
-**From source** (needs Go 1.25.11+): `make build` (see [Quickstart](#quickstart)).
+**From source** (needs Go 1.25.12+): `make build` (see [Quickstart](#quickstart)).
 
 `console serve` binds to **loopback** by default (no built-in auth yet — see
 [SECURITY.md](SECURITY.md)). To use a plugin (e.g. Postgres), point the matching
@@ -92,7 +104,7 @@ cloudflared tunnel --url http://127.0.0.1:8080      # -> https://<name>.trycloud
 ## Quickstart
 
 ```bash
-# 1. Build (needs Go 1.25.11+)
+# 1. Build (needs Go 1.25.12+)
 make build            # or: go build -o console ./cmd/console
 
 # 2. Create a flag and evaluate it for a user
@@ -315,6 +327,7 @@ A full docs site lives in [`docs/`](docs/) (served via GitHub Pages from `docs/i
 - [Onboarding (Human + AI-Assisted)](docs/onboarding.md)
 - [HTTP API reference](docs/api.md)
 - [MCP server (for AI agents)](docs/mcp.md)
+- [Running in Docker](docs/docker.md)
 - [Architecture](docs/architecture.md)
 - [Plugin architecture (out-of-process gRPC)](docs/plugins-architecture.md)
 - [Writing plugins](docs/plugins-architecture.md#writing-a-plugin)

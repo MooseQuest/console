@@ -32,7 +32,7 @@ I have read the CLA document and I hereby sign the CLA.
 
 ## Build and test
 
-Console needs **Go 1.25.11+** and no cgo toolchain — the embedded database is the
+Console needs **Go 1.25.12+** and no cgo toolchain — the embedded database is the
 pure-Go `modernc.org/sqlite`, so a plain `go build` produces a static binary.
 
 ```bash

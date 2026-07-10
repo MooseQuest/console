@@ -15,6 +15,11 @@ include breaking changes to the API and plugin protocol.
   `docker-compose.yml` and [docs/docker.md](docs/docker.md) cover persistence
   and configuration.
 
+### Security
+- Raised the `go.mod` floor to **Go 1.25.12**, which clears a new standard-library
+  advisory (GO-2026-5856, Encrypted Client Hello privacy leak in `crypto/tls`);
+  docs updated.
+
 ### Docs
 - Documentation-accuracy pass (per `docs/librarian/remediation-2026-07-02.md`):
   corrected the plugin catalog (12 plugins; notify seam's five sinks now include

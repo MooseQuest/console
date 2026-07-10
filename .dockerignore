@@ -1,0 +1,14 @@
+# Keep the build context small: only Go sources + module files are needed.
+.git
+.github
+bin
+dist
+docs
+*.db
+*.db-shm
+*.db-wal
+*.md
+.vault.toml
+Dockerfile
+docker-compose.yml
+.dockerignore

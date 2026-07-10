@@ -1,0 +1,14 @@
+# Run Console with a persistent volume:
+#   docker compose up -d
+# Then open http://localhost:8080.
+services:
+  console:
+    image: ghcr.io/moosequest/console:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - console-data:/data
+    restart: unless-stopped
+
+volumes:
+  console-data:

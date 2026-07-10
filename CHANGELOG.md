@@ -6,6 +6,15 @@ include breaking changes to the API and plugin protocol.
 
 ## [Unreleased]
 
+### Added
+- **Container image** — Console now ships as a small multi-arch
+  (`linux/amd64` + `linux/arm64`) image (~20 MB, distroless, nonroot) published
+  to `ghcr.io/moosequest/console` and `moosequest/console` on Docker Hub. Run it
+  with `docker run -p 8080:8080 ghcr.io/moosequest/console`. A `docker.yml`
+  workflow builds and pushes on version tags (and manual dispatch); a
+  `docker-compose.yml` and [docs/docker.md](docs/docker.md) cover persistence
+  and configuration.
+
 ### Docs
 - Documentation-accuracy pass (per `docs/librarian/remediation-2026-07-02.md`):
   corrected the plugin catalog (12 plugins; notify seam's five sinks now include

@@ -8,8 +8,13 @@ VERSION="${1:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
 PLATFORMS=(darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64)
 PLUGINS=$(ls -d cmd/console-plugin-* | sed 's#cmd/##')
 
+# Build release binaries with exactly the go.mod floor toolchain (patched), not
+# whatever local Go happens to be installed — keeps artifacts reproducible and
+# free of stdlib advisories the floor already fixes. Go fetches it on demand.
+export GOTOOLCHAIN="go$(sed -n 's/^go //p' go.mod)"
+
 rm -rf dist && mkdir -p dist
-echo "Building Console $VERSION for ${#PLATFORMS[@]} platforms…"
+echo "Building Console $VERSION for ${#PLATFORMS[@]} platforms (toolchain $GOTOOLCHAIN)…"
 
 for plat in "${PLATFORMS[@]}"; do
   os="${plat%/*}"; arch="${plat#*/}"

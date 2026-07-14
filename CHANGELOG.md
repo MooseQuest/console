@@ -4,6 +4,24 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [0.6.1] - 2026-07-14
+
+### Security
+- **Release binaries are now built with the pinned `go.mod` floor toolchain.**
+  The v0.6.0 downloadable bundles were built with a local Go toolchain
+  (go1.26.4) that predated the fix for stdlib advisory GO-2026-5856 (Encrypted
+  Client Hello privacy leak in `crypto/tls`, fixed in go1.25.12 / go1.26.5), so
+  they carried it; v0.6.1 rebuilds every bundle clean (verified with
+  `govulncheck -mode=binary`). `scripts/dist.sh` now exports
+  `GOTOOLCHAIN=go<go.mod floor>` so release artifacts always match the declared
+  floor and this can't recur. (The container image was already built in CI with
+  a patched toolchain and was unaffected.)
+
+### Changed
+- Dependency bumps: `google.golang.org/grpc` v1.81.1 → v1.82.0,
+  `modernc.org/sqlite` v1.52.0 → v1.53.0; CI actions `actions/checkout`
+  v6.0.3 → v7.0.0 and `actions/setup-go` v6.4.0 → v6.5.0 (both SHA-pinned).
+
 ## [0.6.0] - 2026-07-13
 
 ### Added
@@ -187,6 +205,7 @@ Host↔plugin compatibility is governed by the go-plugin handshake
 - Licensed under **AGPL-3.0** with a contributor CLA.
 - Documentation site under `docs/` (GitHub Pages).
 
+[0.6.1]: https://github.com/MooseQuest/console/releases/tag/v0.6.1
 [0.6.0]: https://github.com/MooseQuest/console/releases/tag/v0.6.0
 [0.5.0]: https://github.com/MooseQuest/console/releases/tag/v0.5.0
 [0.4.0]: https://github.com/MooseQuest/console/releases/tag/v0.4.0

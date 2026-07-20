@@ -102,8 +102,13 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 // ListenAndServe serves the dashboard and API on addr until the process exits.
+//
+// Console serves plain HTTP by design: it binds loopback by default and expects
+// TLS to be terminated by a reverse proxy or ingress when exposed to a network
+// (see SECURITY.md). It never terminates TLS itself, so the semgrep use-tls rule
+// is suppressed here intentionally.
 func (s *Server) ListenAndServe(addr string) error {
-	return http.ListenAndServe(addr, s.Handler())
+	return http.ListenAndServe(addr, s.Handler()) // nosemgrep: go.lang.security.audit.net.use-tls.use-tls
 }
 
 // --- middleware ---

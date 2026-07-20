@@ -6,7 +6,8 @@
 
 # ---- build stage: cross-compile on the native builder for speed ----
 FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS build
-ARG TARGETOS TARGETARCH
+ARG TARGETOS
+ARG TARGETARCH
 # VERSION is stamped into the binary (see cmd/console resolveVersion()).
 ARG VERSION=dev
 WORKDIR /src

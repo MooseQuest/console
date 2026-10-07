@@ -72,7 +72,7 @@ tar xzf console_v0.6.1_darwin_arm64.tar.gz && cd console_v0.6.1_darwin_arm64
 **Windows (PowerShell):** download `console_v0.6.1_windows_amd64.zip` from the release,
 verify against `SHA256SUMS.txt`, expand it, then run `.\console.exe serve`.
 
-**From source** (needs Go 1.25.12+): `make build` (see [Quickstart](#quickstart)).
+**From source** (needs Go 1.25.13+): `make build` (see [Quickstart](#quickstart)).
 
 `console serve` binds to **loopback** by default (no built-in auth yet — see
 [SECURITY.md](SECURITY.md)). To use a plugin (e.g. Postgres), point the matching
@@ -104,7 +104,7 @@ cloudflared tunnel --url http://127.0.0.1:8080      # -> https://<name>.trycloud
 ## Quickstart
 
 ```bash
-# 1. Build (needs Go 1.25.12+)
+# 1. Build (needs Go 1.25.13+)
 make build            # or: go build -o console ./cmd/console
 
 # 2. Create a flag and evaluate it for a user

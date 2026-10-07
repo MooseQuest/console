@@ -4,6 +4,25 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [0.6.2] - 2026-10-07
+
+### Security
+- Raised the `go.mod` floor to **Go 1.25.13**, clearing eight standard-library
+  advisories (GO-2026-6218 `net/url`, -6091 `html/template`, -6090 `crypto/tls`,
+  -6089 / -5026 `net/http`, -6088 `encoding/xml`, -5972 `encoding/asn1`).
+  Release bundles are built with this floor toolchain.
+- Dependency advisories fixed: `google.golang.org/grpc` v1.82.0 → v1.84.0
+  (GO-2026-6443, -6348, -6061) and `golang.org/x/text` v0.37.0 → v0.41.0
+  (GO-2026-6629, -5970). `govulncheck ./...` now reports no vulnerabilities.
+
+### Changed
+- Dependency bumps: `github.com/jackc/pgx/v5` v5.10.0 → v5.11.0,
+  `github.com/modelcontextprotocol/go-sdk` v1.6.1 → v1.8.0,
+  `google.golang.org/protobuf` v1.36.11 → v1.36.12, plus indirect `x/net`,
+  `x/sys`, `x/sync`, `x/term` and `genproto`. `modernc.org/sqlite` is held at
+  v1.53.0 (and `x/net`/`x/sys` etc. short of their latest) because the newest
+  releases require Go 1.26; the floor stays on 1.25.
+
 ## [0.6.1] - 2026-07-14
 
 ### Security

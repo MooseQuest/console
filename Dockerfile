@@ -5,7 +5,7 @@
 # distroless base. The result is a ~20 MB image that starts in milliseconds.
 
 # ---- build stage: cross-compile on the native builder for speed ----
-FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS build
 ARG TARGETOS
 ARG TARGETARCH
 # VERSION is stamped into the binary (see cmd/console resolveVersion()).

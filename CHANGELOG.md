@@ -4,6 +4,19 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [Unreleased]
+
+### Changed
+- **Raised the `go.mod` floor to Go 1.26.9** (from 1.25.13). Building from source
+  now needs Go 1.26.9+; the container build image moves to `golang:1.26`. This
+  unblocks dependency releases that require Go 1.26.
+- Dependency bumps: `modernc.org/sqlite` v1.53.0 → v1.60.1 (with `modernc.org/libc`
+  v1.78.0), and indirect `x/net`, `x/sys`, `x/text`, `x/sync`, `x/term`, `x/oauth2`
+  and others to their latest. `govulncheck ./...` reports no vulnerabilities.
+
+### Added
+- Design doc for an APM harness (`docs/design/apm.md`); tracked in epic #54.
+
 ## [0.6.2] - 2026-10-07
 
 ### Security

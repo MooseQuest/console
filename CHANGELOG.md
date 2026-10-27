@@ -4,7 +4,7 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
-## [Unreleased]
+## [0.7.0] - 2026-10-27
 
 ### Security
 - Floor set to **Go 1.26.10**, which clears stdlib advisory GO-2026-6809
@@ -17,6 +17,11 @@ include breaking changes to the API and plugin protocol.
 - Dependency bumps: `modernc.org/sqlite` v1.53.0 → v1.60.1 (with `modernc.org/libc`
   v1.78.0), and indirect `x/net`, `x/sys`, `x/text`, `x/sync`, `x/term`, `x/oauth2`
   and others to their latest. `govulncheck ./...` reports no vulnerabilities.
+
+- CI actions (SHA-pinned): `actions/checkout` v7.0.0 → v7.0.1, `actions/setup-go`
+  v6.5.0 → v7.0.0, `docker/login-action` → v4.6.0, `docker/setup-buildx-action`
+  and `docker/setup-qemu-action` → v4.3.0. The `govulncheck` CI job now installs
+  its tool with `GOTOOLCHAIN=auto` so it keeps working across Go floors.
 
 ### Added
 - Design doc for an APM harness (`docs/design/apm.md`); tracked in epic #54.

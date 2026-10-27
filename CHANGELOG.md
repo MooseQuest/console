@@ -6,9 +6,13 @@ include breaking changes to the API and plugin protocol.
 
 ## [Unreleased]
 
+### Security
+- Floor set to **Go 1.26.10**, which clears stdlib advisory GO-2026-6809
+  (`crypto/x509`). Release bundles are built with this toolchain.
+
 ### Changed
-- **Raised the `go.mod` floor to Go 1.26.9** (from 1.25.13). Building from source
-  now needs Go 1.26.9+; the container build image moves to `golang:1.26`. This
+- **Raised the `go.mod` floor to Go 1.26** (from 1.25.13). Building from source
+  now needs Go 1.26.10+; the container build image moves to `golang:1.26`. This
   unblocks dependency releases that require Go 1.26.
 - Dependency bumps: `modernc.org/sqlite` v1.53.0 → v1.60.1 (with `modernc.org/libc`
   v1.78.0), and indirect `x/net`, `x/sys`, `x/text`, `x/sync`, `x/term`, `x/oauth2`

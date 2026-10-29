@@ -62,11 +62,58 @@ Implementations
 - `obs.Memory` — stdlib in-process registry that renders Prometheus text
   exposition format (hand-rolled; counters, gauges, fixed-bucket histograms).
   Spans are no-ops that still propagate a request ID.
-- `obs/otel` (optional, separate Go module or build-tagged package) — OTel SDK
-  adapter exporting traces and metrics over OTLP. Not linked into the default
-  binary. OTel is already an indirect dependency via grpc, and it is pure Go,
-  so it satisfies the cgo-free rule; whether it lives in core is a decision to
-  take when that card is picked up.
+- OTel adapter (optional; packaging decided, see 4.1.1: nested module at
+  `contrib/otel`) — OTel SDK adapter exporting traces and metrics over OTLP. Not linked into, and not
+  in the dependency graph of, the default binary.
+
+#### 4.1.1 OTel packaging (resolves #51) — decided: option B
+
+Status: **decided (Kristerpher): option B, nested module `contrib/otel` plus a
+`console-otel` binary.** The build-tag option (A) was re-evaluated seriously and
+rejected to keep the core module's dependency graph OTel-free; the go-plugin
+option was eliminated. The analysis below is kept as the rationale.
+
+Correction to earlier text: OTel is **not** currently in `go.mod`/`go.sum`
+(only grpc and protobuf are), so any in-tree option adds a new dependency tree
+to the root module graph, not a promotion of an existing one.
+
+Eliminated: **separate go-plugin binary.** `Recorder` is synchronous and on the
+hot path (budget: ~1 us, zero allocations per flag evaluation). A gRPC hop per
+counter increment or span cannot meet that and loses context propagation. A
+plugin could only receive batched, already-aggregated data, which is a
+different feature and a new proto seam.
+
+Common to both remaining options: the default `go build` links no OTel, so the
+default binary-size budget (~200 KB growth, section 4.6) is unaffected; the
+OTel-enabled binary is several MB larger either way and is outside that budget.
+Metrics-only users need no adapter: the OpenTelemetry Collector can scrape
+`/metrics` with a `read` token ([auth.md](auth.md)). The adapter is for traces
+and native OTLP push.
+
+| Criterion | A. Build tag `otel` in root module | B. Nested module `contrib/otel` + `console-otel` main |
+|---|---|---|
+| Root `go.mod` / `go.sum` | Gains the OTel SDK + exporter tree (dozens of modules) | Untouched |
+| "No OTel in default build" | True for `go build`/`go list -deps`, enforced by a CI check; true in the module graph only lazily | Structurally true: root module has no OTel at all |
+| Dependabot | OTel bumps open PRs against the root module (noisy; frequent releases) unless ignore rules or grouping are configured | Separate `directory` entry; can be grouped, slowed, or paused independently |
+| `govulncheck` | Default run ignores tagged code; must add a second `-tags otel` run. Module-graph scanners (Trivy, GitHub dependency graph, SBOM from `go.mod`) report OTel for every user of the default binary | Root scan stays clean; separate job for the module |
+| Refactor needed | Small: a `//go:build otel` file in `cmd/console` registers a Recorder factory. No `internal/cli` | Larger: `cmd/console/main.go` becomes a shim over a new `internal/cli.Main(opts)` so a second `main` can reuse it (about one card, mostly mechanical, touches every subcommand wiring) |
+| Release artifacts | One module, one tag; two binaries/images via `-tags otel` in the same pipeline | Second module versioned in lockstep (`replace ../..` for in-repo builds, `go.work` for dev), own tag/image, extra CI jobs |
+| `internal/` access | Native | Allowed (path-based rule) but couples a second module to unstable internals |
+| Consumers who `go install`/import root | Pay module-graph cost of OTel they never use | Unaffected |
+| Extraction later | Hard to remove from go.mod once users depend on tag | Can move to its own repo with no redesign (depends only on `Recorder`) |
+| Fits CLAUDE.md "stdlib-first, minimal deps" | Weaker: dependency present in the main module graph | Stronger |
+
+Recommendation: **B (nested module)**, because the project's stated bias is a
+minimal root dependency graph and supply-chain posture
+(`docs/security/supply-chain.md`), and B makes that structural instead of a CI
+convention. B costs one mechanical refactor card and a second artifact to
+version. If those costs outweigh the scanner and Dependabot noise for you, **A
+is acceptable** provided Dependabot ignore/grouping rules, a `-tags otel`
+govulncheck job, and a `go list -deps` CI guard on the default build ship with
+it.
+
+**Decision required (Kristerpher):** choose A or B. Until chosen, #51 stays
+blocked; the `internal/cli` refactor card is only filed if B is chosen.
 
 Label cardinality is bounded by construction: route labels use the registered
 mux pattern (`GET /api/flags/{key}`), never the raw path; flag keys and
@@ -108,8 +155,10 @@ values must never be logged.
 
 ### 4.5 Endpoints and exposure
 
-`/metrics` and pprof are **unauthenticated**, like the rest of the API (see
-[SECURITY.md](../../SECURITY.md)). Therefore:
+`/metrics` and pprof are **unauthenticated** until built-in auth ships, like the
+rest of the API (see [SECURITY.md](../../SECURITY.md)). After that, `/metrics`
+requires the `read` scope per [auth.md](auth.md); pprof keeps its loopback
+guard. Therefore:
 - pprof is off by default and, when enabled, refuses a non-loopback address
   unless `CONSOLE_PPROF_ALLOW_REMOTE=1`.
 - `/metrics` follows the main listener's bind address (loopback by default).
@@ -145,8 +194,9 @@ growth under ~200 KB.
 
 ## 7. Open questions
 
-- Should `/metrics` default to the main listener or a separate address?
-  (Proposed: main listener on loopback; separate address recommended in docs.)
-- OTel adapter: build-tagged package in this module, or a separate plugin
-  binary like the other seams?
+- ~~Should `/metrics` default to the main listener or a separate address?~~
+  Main listener; once auth lands it requires the `read` scope (see
+  [auth.md](auth.md) section 3.4). A separate address is recommended and must be
+  loopback or authenticated.
+- **OTel adapter packaging: DECIDED, option B** (nested module); see 4.1.1.
 - Do we want an opt-in anonymous usage ping as a separate follow-up? Out of scope here.

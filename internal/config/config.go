@@ -43,6 +43,9 @@ type Config struct {
 	// MetricsAddr, when set, serves /metrics on a separate listener at this
 	// address instead of the main one (CONSOLE_METRICS_ADDR).
 	MetricsAddr string
+	// Version is the build version reported by console_build_info. It is set
+	// by the caller (not read from the environment); empty becomes "unknown".
+	Version string
 }
 
 // Default returns the baseline configuration before env/flag overrides.

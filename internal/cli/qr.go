@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"flag"
@@ -22,7 +22,7 @@ configured listen port (CONSOLE_ADDR). Scan it from a phone on the SAME network.
 Pass -url to encode any address instead (e.g. a tunnel URL for remote access).
 `
 
-func cmdQR(args []string, cfg config.Config) error {
+func (c *cli) cmdQR(args []string, cfg config.Config) error {
 	fs := flag.NewFlagSet("qr", flag.ContinueOnError)
 	url := fs.String("url", "", "URL to encode (e.g. a tunnel URL); default derives the LAN URL")
 	if err := fs.Parse(args); err != nil {

@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bufio"
@@ -24,7 +24,7 @@ Usage:
   console onboard ... -guide setup.md              # write a prompt.ai-style guide
 `
 
-func cmdOnboard(args []string, cfg config.Config) error {
+func (c *cli) cmdOnboard(args []string, cfg config.Config) error {
 	fs := flag.NewFlagSet("onboard", flag.ContinueOnError)
 	useAI := fs.Bool("ai", false, "use AI-Assisted mode")
 	name := fs.String("name", "", "app name (AI mode)")
@@ -37,7 +37,7 @@ func cmdOnboard(args []string, cfg config.Config) error {
 
 	ctx, cancel := signalContext()
 	defer cancel()
-	a, err := app.New(ctx, cfg)
+	a, err := app.New(ctx, cfg, c.appOpts()...)
 	if err != nil {
 		return err
 	}

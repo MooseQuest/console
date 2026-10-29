@@ -20,9 +20,11 @@ names, traffic levels, and the Console version.
   address** (for example `127.0.0.1:9091`) and keep it off public interfaces.
 - Once built-in auth ships, `/metrics` requires the **`read` scope**
   ([design/auth.md](design/auth.md) section 3.4). Prometheus must then present a
-  bearer token, see the scrape config below. A separate metrics listener is
-  allowed unauthenticated only on loopback; a non-loopback metrics address
-  requires the same token check. There is no "public metrics" escape hatch.
+  bearer token, see the scrape config below. Guidance: a separate metrics
+  listener should be bound to loopback; a non-loopback metrics address should
+  be protected by the same token check. This is not yet enforced: `serve` does
+  a plain listen on `CONSOLE_METRICS_ADDR` with no loopback check (enforcement
+  lands with #80), so choose the address deliberately.
 
 See also [security/runtime-hardening.md](security/runtime-hardening.md).
 

@@ -280,8 +280,9 @@ hosts prefer an SSH tunnel to the loopback address over the override.
 - **Behind a proxy, block it.** If a reverse proxy exposes Console, deny
   `/metrics` at the proxy (or allow only your Prometheus host).
 - **Or use a separate address.** `CONSOLE_METRICS_ADDR=127.0.0.1:9091` moves
-  metrics off the main listener. A separate address must be loopback or, once
-  auth ships, authenticated; there is no public-metrics escape hatch.
+  metrics off the main listener. A separate address should be loopback (or,
+  once auth is wired, authenticated). This is guidance only: Console does not
+  yet check the address, and enforcement lands with #80.
 - **Disable.** `CONSOLE_METRICS=off` removes the endpoint entirely.
 
 ---

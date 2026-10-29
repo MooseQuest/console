@@ -131,9 +131,12 @@ func (s *Server) WithLogger(l *slog.Logger) *Server {
 // sits inside metrics but outside logging/recovery so every log line and auth
 // failure carries an ID; auth sits inside metrics so failures are counted. The
 // auth middleware is a pass-through unless WithAuthenticator was given one.
-func (s *Server) Handler() http.Handler {
+func (s *Server) Handler() http.Handler { return s.chain(s.mux) }
+
+// chain wraps mux in the standard middleware stack described on Handler.
+func (s *Server) chain(mux *http.ServeMux) http.Handler {
 	return newHTTPMetrics(s.app.Obs).middleware(
-		requestID(logging(s.log, recoverPanic(s.log, securityHeaders(s.authMiddleware(s.mux))))))
+		requestID(logging(s.log, recoverPanic(s.log, securityHeaders(s.authMiddleware(mux))))))
 }
 
 // securityHeaders sets conservative response headers on every response:

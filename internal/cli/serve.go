@@ -128,7 +128,7 @@ func checkExposure(cfg config.Config) error {
 	if !netutil.IsLoopback(cfg.Addr) {
 		exposed = append(exposed, "CONSOLE_ADDR "+cfg.Addr)
 	}
-	if cfg.MetricsAddr != "" && !netutil.IsLoopback(cfg.MetricsAddr) {
+	if cfg.Metrics && cfg.MetricsAddr != "" && !netutil.IsLoopback(cfg.MetricsAddr) {
 		exposed = append(exposed, "CONSOLE_METRICS_ADDR "+cfg.MetricsAddr)
 	}
 	if len(exposed) == 0 || cfg.AuthEnabled() {

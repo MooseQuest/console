@@ -18,13 +18,14 @@ names, traffic levels, and the Console version.
   Prometheus server's address).
 - Alternatively set `CONSOLE_METRICS_ADDR` to serve metrics on a **separate
   address** (for example `127.0.0.1:9091`) and keep it off public interfaces.
-- Once built-in auth ships, `/metrics` requires the **`read` scope**
-  ([design/auth.md](design/auth.md) section 3.4). Prometheus must then present a
-  bearer token, see the scrape config below. Guidance: a separate metrics
-  listener should be bound to loopback; a non-loopback metrics address should
-  be protected by the same token check. This is not yet enforced: `serve` does
-  a plain listen on `CONSOLE_METRICS_ADDR` with no loopback check (enforcement
-  lands with #80), so choose the address deliberately.
+- When built-in auth is enabled, `/metrics` requires the **`read` scope**
+  ([design/auth.md](design/auth.md) section 3.4) on both the main listener and
+  the `CONSOLE_METRICS_ADDR` listener (401 without a token, 403 with an `eval`
+  token). Prometheus must present a bearer token, see the scrape config below.
+  A loopback metrics address may run unauthenticated only when auth is
+  disabled; a non-loopback `CONSOLE_METRICS_ADDR` makes `serve` refuse to start
+  unless auth is enabled (or `CONSOLE_AUTH=disabled` is set explicitly). The
+  check is skipped when `CONSOLE_METRICS=off`, since no listener starts.
 
 See also [security/runtime-hardening.md](security/runtime-hardening.md).
 
@@ -54,7 +55,7 @@ scrape_configs:
       - targets: ["127.0.0.1:8080"]
 ```
 
-Once auth is enabled (#72, #80), `/metrics` requires a bearer token with the
+Once auth is enabled, `/metrics` requires a bearer token with the
 `read` scope. Create one with `console auth token` and supply it:
 
 ```yaml

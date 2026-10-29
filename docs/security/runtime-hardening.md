@@ -280,9 +280,10 @@ hosts prefer an SSH tunnel to the loopback address over the override.
 - **Behind a proxy, block it.** If a reverse proxy exposes Console, deny
   `/metrics` at the proxy (or allow only your Prometheus host).
 - **Or use a separate address.** `CONSOLE_METRICS_ADDR=127.0.0.1:9091` moves
-  metrics off the main listener. A separate address should be loopback (or,
-  once auth is wired, authenticated). This is guidance only: Console does not
-  yet check the address, and enforcement lands with #80.
+  metrics off the main listener. A non-loopback address makes `serve`
+  refuse to start unless auth is enabled, and the separate listener enforces
+  the same `read`-scope token check as the main listener. The startup check is
+  skipped when `CONSOLE_METRICS=off`.
 - **Disable.** `CONSOLE_METRICS=off` removes the endpoint entirely.
 
 ---
@@ -298,7 +299,7 @@ hosts prefer an SSH tunnel to the loopback address over the override.
 | Secrets leaking into logs via URL error messages | Medium | ✅ Credential redaction done (v0.2.1) |
 | Unbounded LLM reads / no server timeouts / RunAll fan-out | Medium | ✅ All three bounded (v0.2.1) |
 | Default bind to all interfaces | High | ✅ Changed to loopback by default (v0.2.1) |
-| `/metrics` exposure | Medium | Unauthenticated while auth is off (loopback default); requires `read` once auth ships; block at proxy or use `CONSOLE_METRICS_ADDR` |
+| `/metrics` exposure | Medium | Unauthenticated while auth is off (loopback default); requires `read` when auth is enabled (both listeners); block at proxy or use `CONSOLE_METRICS_ADDR` |
 | pprof exposure | Medium | ✅ Opt-in, separate loopback-only listener (override required for remote) |
 | Security headers | Low | ✅ Restrictive headers + CSP middleware added (v0.2.1) |
 | htmx from CDN without SRI | Low | 🔜 Vendor + SRI; drop the CDN CSP exception |

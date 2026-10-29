@@ -47,6 +47,7 @@ Commands:
   onboard     Onboard an app into Console (Human or AI-Assisted mode)
   qr          Show a QR code to open the dashboard on your phone
   mcp         Serve Console over the Model Context Protocol (for AI agents)
+  auth        Generate API tokens (console auth token)
   version     Print the version
   help        Show this help
 
@@ -94,6 +95,8 @@ func run(args []string) error {
 		return cmdQR(rest, cfg)
 	case "mcp":
 		return cmdMCP(rest, cfg)
+	case "auth":
+		return cmdAuth(rest)
 	case "version", "--version", "-v":
 		fmt.Printf("console %s\n", resolveVersion())
 		return nil

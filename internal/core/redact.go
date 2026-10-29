@@ -12,7 +12,8 @@ const SecretPlaceholder = "[set]"
 
 // secretMarkers are the case-insensitive substrings that mark a config key as
 // secret. The match is deliberately broad: fail-safe over precise.
-var secretMarkers = []string{"token", "secret", "key", "password", "credential", "auth", "webhook"}
+var secretMarkers = []string{"token", "secret", "key", "password", "credential", "auth", "webhook",
+	"dsn", "passwd", "pass", "pwd", "bearer", "cookie", "signature", "jwt", "private", "connection_string"}
 
 // IsSecretConfigKey reports whether a component config key holds a secret,
 // by case-insensitive substring match against the known markers.

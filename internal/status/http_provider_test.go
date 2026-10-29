@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,5 +110,23 @@ func TestHTTPProviderMissingURL(t *testing.T) {
 	}
 	if check.Message == "" {
 		t.Fatal("expected an explanatory Message")
+	}
+}
+
+func TestHTTPProviderErrorDoesNotLeakURL(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	addr := srv.URL
+	srv.Close() // connection refused
+	u := strings.Replace(addr, "http://", "http://user:hunter2@", 1) + "/h?token=sekrit"
+	chk := (&HTTPProvider{}).Check(context.Background(), core.Component{
+		Key: "x", Config: map[string]string{"url": u},
+	})
+	if chk.State != core.StateDown {
+		t.Fatalf("state = %v, want down", chk.State)
+	}
+	for _, bad := range []string{"hunter2", "sekrit", "token=", "/h?"} {
+		if strings.Contains(chk.Message, bad) {
+			t.Errorf("message leaks %q: %s", bad, chk.Message)
+		}
 	}
 }

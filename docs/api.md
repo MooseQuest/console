@@ -208,10 +208,14 @@ Get, replace, or delete a component by key (`404` if absent).
 
 Component `config` secrets are write-only. A config key is secret if its
 lowercase name contains `token`, `secret`, `key`, `password`, `credential`,
-`auth` or `webhook`; every read (API, dashboard, MCP, logs) renders such values
+`auth`, `webhook`, `dsn`, `passwd`, `pass`, `pwd`, `bearer`, `cookie`,
+`signature`, `jwt`, `private` or `connection_string`; every read (API, dashboard, MCP, logs) renders such values
 as the literal `"[set]"`. Other keys are returned verbatim. On `PUT`, a secret
 key whose value is `"[set]"`, or that is omitted, keeps its stored value, so a
-GET-then-PUT round trip does not destroy a secret; any other value replaces it.
+GET-then-PUT round trip does not destroy a secret; any other value replaces it, and an empty string `""` clears the secret.
+Redaction is by key name only: credentials embedded in the `url` value (userinfo
+or query parameters) are **not** redacted, so keep them out of `url` and use a
+secret-named key instead.
 Status checks still use the real stored values.
 
 ### `POST /api/components/{key}/check`

@@ -11,6 +11,8 @@ func TestRedactConfig(t *testing.T) {
 		"url": "https://x.test", "API_Token": "raw1", "client_secret": "raw2",
 		"apikey": "raw3", "Password": "raw4", "credentials": "raw5",
 		"Authorization": "raw6", "slack_webhook": "raw7",
+		"db_dsn": "r8", "passwd": "r9", "pass": "r10", "PWD": "r11", "bearer": "r12",
+		"Cookie": "r13", "signature": "r14", "jwt": "r15", "private_blob": "r16", "connection_string": "r17",
 	}
 	out := RedactConfig(in)
 	if out["url"] != "https://x.test" {

@@ -116,6 +116,14 @@ for what each plugin does and which provider-specific variables it reads.
 Everything else (engines, plugin gRPC round-trips, provider/notifier/LLM
 adapters) runs with no external services, using `httptest` and in-memory fakes.
 
+## OpenTelemetry adapter
+
+`contrib/otel` is a nested Go module (OTLP export of metrics and traces, plus a
+`console-otel` binary). Test it separately: `cd contrib/otel && go test ./...`.
+The root module must never mention `go.opentelemetry.io`;
+`scripts/check-binary-size.sh` enforces it. See
+[contrib/otel/README.md](../contrib/otel/README.md).
+
 ## Performance budget
 
 Instrumentation may add at most ~1 us and zero allocations per flag evaluation,

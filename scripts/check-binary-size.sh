@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Guards the instrumentation performance budget (docs/design/apm.md 4.6):
-#   1. the default binary links no go.opentelemetry.io package, and
+#   1. the default binary links no go.opentelemetry.io package and the root
+#      go.mod/go.sum never mention it (OTel lives in the contrib/otel module), and
 #   2. the default linux/amd64 binary is within 200 KB of the recorded baseline
 #      in .github/binary-size-baseline (bytes).
 # Pass --update to rewrite the baseline from the current build.
@@ -17,6 +18,11 @@ export GOTOOLCHAIN="go$(sed -n 's/^go //p' go.mod)"
 
 if go list -deps ./cmd/console | grep -E '^go\.opentelemetry\.io'; then
   echo "FAIL: default binary depends on OpenTelemetry (see packages above)" >&2
+  exit 1
+fi
+
+if grep -n 'go\.opentelemetry\.io' go.mod go.sum; then
+  echo "FAIL: root module graph mentions OpenTelemetry; it belongs in contrib/otel" >&2
   exit 1
 fi
 

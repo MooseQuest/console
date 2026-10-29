@@ -10,6 +10,17 @@ updates:
       go-dependencies:
         patterns: ["*"]
 
+  # Optional OpenTelemetry adapter (nested module). Kept separate from the root
+  # module so frequent OTel releases never touch it; grouped and monthly.
+  - package-ecosystem: gomod
+    directory: "/contrib/otel"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      otel-dependencies:
+        patterns: ["*"]
+
   # GitHub Actions — propose SHA bumps for the pinned actions.
   - package-ecosystem: github-actions
     directory: "/"

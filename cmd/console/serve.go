@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +25,11 @@ func cmdServe(args []string, cfg config.Config) error {
 		return err
 	}
 	cfg.Addr, cfg.DB = *addr, *db
+
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	slog.SetDefault(server.NewLogger(os.Stderr, cfg.LogFormat))
 
 	ctx, cancel := signalContext()
 	defer cancel()

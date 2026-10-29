@@ -7,9 +7,10 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -25,6 +26,7 @@ type Server struct {
 	app  *app.App
 	mux  *http.ServeMux
 	tmpl *template.Template
+	log  *slog.Logger
 }
 
 // New builds a Server over a. It parses the embedded dashboard templates and
@@ -34,6 +36,7 @@ func New(a *app.App) *Server {
 		app:  a,
 		mux:  http.NewServeMux(),
 		tmpl: parseTemplates(),
+		log:  slog.Default(),
 	}
 	s.Routes()
 	return s
@@ -87,10 +90,22 @@ func (s *Server) Routes() {
 	}
 }
 
-// Handler returns the mux wrapped with metrics (outermost), logging and
-// panic-recovery middleware.
+// WithLogger sets the logger used for request and panic logs (default
+// slog.Default at construction) and returns s. Call before Handler.
+func (s *Server) WithLogger(l *slog.Logger) *Server {
+	if l != nil {
+		s.log = l
+	}
+	return s
+}
+
+// Handler returns the mux wrapped with metrics (outermost), request-ID,
+// logging and panic-recovery middleware. Request-ID sits inside metrics but
+// outside logging/recovery so every log line, and later auth failures, carry
+// an ID.
 func (s *Server) Handler() http.Handler {
-	return newHTTPMetrics(s.app.Obs).middleware(logging(recoverPanic(securityHeaders(s.mux))))
+	return newHTTPMetrics(s.app.Obs).middleware(
+		requestID(logging(s.log, recoverPanic(s.log, securityHeaders(s.mux)))))
 }
 
 // securityHeaders sets conservative response headers on every response:
@@ -124,11 +139,18 @@ func (s *Server) ListenAndServe(addr string) error {
 
 // recoverPanic converts a panicking handler into a 500 rather than crashing the
 // server, logging the recovered value.
-func recoverPanic(next http.Handler) http.Handler {
+func recoverPanic(l *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 		defer func() {
 			if v := recover(); v != nil {
-				log.Printf("panic: %v %s: %v", r.Method, r.URL.Path, v)
+				l.Error("panic recovered",
+					"request_id", RequestID(r.Context()),
+					"method", r.Method,
+					"route", routeOf(r),
+					"status", http.StatusInternalServerError,
+					"duration", time.Since(start),
+					"panic", fmt.Sprint(v))
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 		}()
@@ -147,14 +169,30 @@ func (sr *statusRecorder) WriteHeader(code int) {
 	sr.ResponseWriter.WriteHeader(code)
 }
 
-// logging logs one line per request: method, path, status, and duration.
-func logging(next http.Handler) http.Handler {
+// logging logs one structured record per request: request ID, method, route
+// pattern (never the raw path), status, and duration. Request bodies, headers
+// and query strings are deliberately not logged.
+func logging(l *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sr := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(sr, r)
-		log.Printf("%s %s %d %s", r.Method, r.URL.Path, sr.status, time.Since(start))
+		l.Info("request",
+			"request_id", RequestID(r.Context()),
+			"method", r.Method,
+			"route", routeOf(r),
+			"status", sr.status,
+			"duration", time.Since(start))
 	})
+}
+
+// routeOf returns the matched mux pattern, or "unmatched" (the same bounded
+// label the metrics use) when no route matched.
+func routeOf(r *http.Request) string {
+	if r.Pattern == "" {
+		return unmatchedRoute
+	}
+	return r.Pattern
 }
 
 // --- shared JSON helpers ---
@@ -211,7 +249,7 @@ func (s *Server) render(w http.ResponseWriter, page, file string, data any) {
 	t := template.Must(template.Must(s.tmpl.Clone()).ParseFS(web.Templates, "templates/"+file))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := t.ExecuteTemplate(w, page, data); err != nil {
-		log.Printf("render %s: %v", page, err)
+		s.log.Error("render failed", "page", page, "err", err)
 	}
 }
 
@@ -221,6 +259,6 @@ func (s *Server) renderPartial(w http.ResponseWriter, partial, file string, data
 	t := template.Must(template.ParseFS(web.Templates, "templates/"+file))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := t.ExecuteTemplate(w, partial, data); err != nil {
-		log.Printf("render partial %s: %v", partial, err)
+		s.log.Error("render partial failed", "partial", partial, "err", err)
 	}
 }

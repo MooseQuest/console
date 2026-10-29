@@ -40,20 +40,47 @@ type App struct {
 	closers []func() error
 }
 
+// Option customizes New.
+type Option func(*options)
+
+type options struct {
+	recorder func(config.Config) obs.Recorder
+}
+
+// WithRecorder overrides the Recorder factory. A nil factory is ignored.
+func WithRecorder(f func(cfg config.Config) obs.Recorder) Option {
+	return func(o *options) {
+		if f != nil {
+			o.recorder = f
+		}
+	}
+}
+
+// DefaultRecorder is the default Recorder factory: obs.Nop when cfg.Metrics is
+// false, otherwise an in-memory registry.
+func DefaultRecorder(cfg config.Config) obs.Recorder {
+	if cfg.Metrics {
+		return obs.NewMemory()
+	}
+	return obs.Nop
+}
+
 // New assembles an App from cfg. It opens the storage backend, constructs the
 // flag and status engines (registering the built-in HTTP status provider),
 // loads notifier and status-provider plugins, and selects the LLM provider when
 // one is configured (all out-of-process). The caller owns Close.
-func New(ctx context.Context, cfg config.Config) (*App, error) {
+func New(ctx context.Context, cfg config.Config, opts ...Option) (*App, error) {
+	o := options{recorder: DefaultRecorder}
+	for _, opt := range opts {
+		opt(&o)
+	}
+
 	st, err := openStore(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
 
-	rec := obs.Nop
-	if cfg.Metrics {
-		rec = obs.NewMemory()
-	}
+	rec := o.recorder(cfg)
 	st = obs.WrapStore(st, rec)
 
 	a := &App{

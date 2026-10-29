@@ -252,7 +252,7 @@ so Console treats it as a debugging tool, not a service.
   hostnames other than `localhost` are refused.
 - **Refusal is a startup error.** `console serve` exits non-zero with a message
   naming the address and the override, rather than silently disabling pprof.
-- **Override.** `CONSOLE_PPROF_ALLOW_REMOTE=1` disables the guard. Only use it
+- **Override.** `CONSOLE_PPROF_ALLOW_REMOTE=1` (also `true`, `yes`, `on`) disables the guard. Only use it
   behind a network control you trust (private network, firewall, authenticating
   proxy); there is no authentication on the endpoint itself.
 - **Shutdown.** The listener is closed gracefully with the main server on

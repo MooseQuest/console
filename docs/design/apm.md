@@ -81,7 +81,7 @@ component IDs are **not** used as metric labels.
 | `CONSOLE_METRICS` | `on` | Serve `/metrics` |
 | `CONSOLE_METRICS_ADDR` | *(same listener)* | Serve metrics on a separate address |
 | `CONSOLE_PPROF_ADDR` | *(off)* | Enable `net/http/pprof` on this address |
-| `CONSOLE_PPROF_ALLOW_REMOTE` | *(unset)* | Set to `1` to allow a non-loopback `CONSOLE_PPROF_ADDR` |
+| `CONSOLE_PPROF_ALLOW_REMOTE` | *(unset)* | Set to `1` (also `true`, `yes`, `on`) to allow a non-loopback `CONSOLE_PPROF_ADDR` |
 | `CONSOLE_LOG_FORMAT` | `text` | `text` or `json` (slog) |
 | `CONSOLE_OTLP_ENDPOINT` | *(off)* | Enable the OTel adapter, if built |
 

@@ -5,6 +5,10 @@ An optional OpenTelemetry adapter for Console's `obs.Recorder` seam, plus a
 default `console` binary, never depend on `go.opentelemetry.io` (decision:
 [docs/design/apm.md](../../docs/design/apm.md) section 4.1.1, option B).
 
+> **`/metrics` is not served when OTLP is active.** With
+> `CONSOLE_OTLP_ENDPOINT` set, Console pushes over OTLP instead and the
+> Prometheus scrape endpoint is absent. Unset it to get `/metrics` back.
+
 ## Use
 
 ```sh
@@ -44,6 +48,10 @@ output. Spans nest through the returned context, carry the Console request ID as
 `request.id`, and record a non-nil error on end.
 
 ## Develop
+
+`go install` of this module with a version suffix (`...@version`) is
+**unsupported**: the `replace` directive in `go.mod` prevents it. Build
+in-repo as shown above.
 
 The module uses `replace github.com/moosequest/console => ../..` for in-repo
 builds (it imports `internal/` packages, which Go allows because the module path

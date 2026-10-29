@@ -12,7 +12,7 @@ import (
 	"github.com/moosequest/console/internal/obs"
 )
 
-func obsFixture(t *testing.T, rec obs.Recorder) *Engine {
+func obsFixture(t testing.TB, rec obs.Recorder) *Engine {
 	t.Helper()
 	e := New(newFakeStore())
 	e.SetRecorder(rec)

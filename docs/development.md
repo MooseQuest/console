@@ -116,6 +116,25 @@ for what each plugin does and which provider-specific variables it reads.
 Everything else (engines, plugin gRPC round-trips, provider/notifier/LLM
 adapters) runs with no external services, using `httptest` and in-memory fakes.
 
+## Performance budget
+
+Instrumentation may add at most ~1 us and zero allocations per flag evaluation,
+and the default binary may grow at most 200 KB (see
+[design/apm.md](design/apm.md) section 4.6).
+
+```bash
+go test ./internal/flags ./internal/server -run xxx -bench . -benchmem
+CONSOLE_PERF=1 go test ./internal/flags -run Instrumentation -v   # latency delta, Nop vs Memory
+scripts/check-binary-size.sh                                       # size gate + no-OTel check
+```
+
+The allocation check runs in the normal test suite; the wall-clock latency check
+needs `CONSOLE_PERF=1` (CI's `perf budget` job sets it). The size baseline is the
+byte size of the stripped linux/amd64 build in `.github/binary-size-baseline`.
+When a change legitimately grows the binary, run
+`scripts/check-binary-size.sh --update`, commit the new baseline, and justify the
+growth in the PR description.
+
 ## Regenerating gRPC stubs
 
 Only needed if you edit a `proto/*.proto`. Install the toolchain:

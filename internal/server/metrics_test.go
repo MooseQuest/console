@@ -16,7 +16,7 @@ import (
 	"github.com/moosequest/console/internal/store/sqlite"
 )
 
-func newMetricsApp(t *testing.T, rec obs.Recorder, cfg config.Config) *app.App {
+func newMetricsApp(t testing.TB, rec obs.Recorder, cfg config.Config) *app.App {
 	t.Helper()
 	st, err := sqlite.Open(context.Background(), "")
 	if err != nil {

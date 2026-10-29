@@ -25,6 +25,7 @@ func cmdServe(args []string, cfg config.Config) error {
 		return err
 	}
 	cfg.Addr, cfg.DB = *addr, *db
+	cfg.Version = resolveVersion()
 
 	if err := cfg.Validate(); err != nil {
 		return err

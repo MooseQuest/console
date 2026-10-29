@@ -66,10 +66,16 @@ func TestRequestIDAndLogging(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &m); err != nil {
 			t.Fatalf("not json: %q", line)
 		}
-		for _, k := range []string{"request_id", "method", "route", "status", "duration"} {
+		for _, k := range []string{"request_id", "method", "route", "status", "duration_ms"} {
 			if _, ok := m[k]; !ok {
 				t.Errorf("log line missing %s: %s", k, line)
 			}
+		}
+		if _, ok := m["duration_ms"].(float64); !ok {
+			t.Errorf("duration_ms not a number: %s", line)
+		}
+		if _, ok := m["duration"]; ok {
+			t.Errorf("legacy duration key present: %s", line)
 		}
 		if m["request_id"] == "panic-1" {
 			if m["route"] != "GET /boom/{id}" {

@@ -47,6 +47,9 @@ type Config struct {
 	// LogFormat selects the log encoding: "text" (default) or "json"
 	// (CONSOLE_LOG_FORMAT). Check with Validate.
 	LogFormat string
+	// Version is the build version reported by console_build_info. It is set
+	// by the caller (not read from the environment); empty becomes "unknown".
+	Version string
 }
 
 // Log formats accepted by Config.LogFormat.

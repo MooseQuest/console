@@ -149,13 +149,19 @@ func recoverPanic(l *slog.Logger, next http.Handler) http.Handler {
 					"method", r.Method,
 					"route", routeOf(r),
 					"status", http.StatusInternalServerError,
-					"duration", time.Since(start),
+					"duration_ms", durationMS(time.Since(start)),
 					"panic", fmt.Sprint(v))
 				http.Error(w, "internal server error", http.StatusInternalServerError)
 			}
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+// durationMS converts d to float milliseconds so JSON logs carry a
+// self-describing number rather than integer nanoseconds.
+func durationMS(d time.Duration) float64 {
+	return float64(d) / float64(time.Millisecond)
 }
 
 // statusRecorder captures the response status code for logging.
@@ -170,7 +176,7 @@ func (sr *statusRecorder) WriteHeader(code int) {
 }
 
 // logging logs one structured record per request: request ID, method, route
-// pattern (never the raw path), status, and duration. Request bodies, headers
+// pattern (never the raw path), status, and duration_ms. Request bodies, headers
 // and query strings are deliberately not logged.
 func logging(l *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,7 +188,7 @@ func logging(l *slog.Logger, next http.Handler) http.Handler {
 			"method", r.Method,
 			"route", routeOf(r),
 			"status", sr.status,
-			"duration", time.Since(start))
+			"duration_ms", durationMS(time.Since(start)))
 	})
 }
 

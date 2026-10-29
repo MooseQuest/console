@@ -52,7 +52,13 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 
 	rec := obs.Nop
 	if cfg.Metrics {
-		rec = obs.NewMemory()
+		mem := obs.NewMemory()
+		version := cfg.Version
+		if version == "" {
+			version = "unknown"
+		}
+		mem.AddCollector(obs.RuntimeCollector(version))
+		rec = mem
 	}
 	st = obs.WrapStore(st, rec)
 
@@ -66,6 +72,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 
 	a.Flags.SetRecorder(rec)
+	a.Notify.SetRecorder(rec)
 
 	if err := a.loadPlugins(cfg); err != nil {
 		_ = a.Close()

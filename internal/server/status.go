@@ -23,7 +23,7 @@ func (s *Server) handleListComponents(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, comps)
+	writeJSON(w, http.StatusOK, core.RedactComponents(comps))
 }
 
 // handleCreateComponent creates a component from the body and returns 201.
@@ -37,7 +37,7 @@ func (s *Server) handleCreateComponent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, c)
+	writeJSON(w, http.StatusCreated, c.Redacted())
 }
 
 // handleGetComponent returns one component by key, or 404.
@@ -47,7 +47,7 @@ func (s *Server) handleGetComponent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, c)
+	writeJSON(w, http.StatusOK, c.Redacted())
 }
 
 // handleUpdateComponent replaces a component. The path key is authoritative.
@@ -62,7 +62,7 @@ func (s *Server) handleUpdateComponent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, c)
+	writeJSON(w, http.StatusOK, c.Redacted())
 }
 
 // handleDeleteComponent removes a component and returns 204.

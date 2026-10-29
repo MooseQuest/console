@@ -37,7 +37,11 @@ func metricsHandler(rec obs.Recorder) http.Handler {
 
 // MetricsHandler returns a handler serving only GET /metrics, for the optional
 // dedicated metrics listener (CONSOLE_METRICS_ADDR). It returns nil when
-// metrics are disabled.
+// metrics are disabled. It runs the same middleware chain as Handler (metrics,
+// request ID, logging, recovery, security headers) and the same auth
+// middleware against the shared routeScopes table, so with an authenticator
+// configured GET /metrics requires the read scope (401/403 otherwise), exactly
+// as on the main listener. Without one (auth disabled) it is unauthenticated.
 func (s *Server) MetricsHandler() http.Handler {
 	h := metricsHandler(s.app.Obs)
 	if h == nil {
@@ -45,7 +49,7 @@ func (s *Server) MetricsHandler() http.Handler {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("GET /metrics", h)
-	return mux
+	return s.chain(mux)
 }
 
 // httpMetrics records RED metrics for every request. Instruments are resolved

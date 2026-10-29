@@ -6,11 +6,13 @@ package flags
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"time"
 
 	"github.com/moosequest/console/internal/core"
+	"github.com/moosequest/console/internal/obs"
 	"github.com/moosequest/console/internal/store"
 )
 
@@ -21,11 +23,49 @@ type Engine struct {
 	// emit, when set, receives an Event when a flag changes. Optional; nil
 	// disables emission.
 	emit func(core.Event)
+
+	// Evaluation instruments, resolved once by SetRecorder (never per call).
+	// They only observe an evaluation; they never influence its result.
+	evalCount map[string]obs.Counter
+	evalDur   obs.Histogram
 }
 
-// New returns an Engine backed by the given store.
+// Result label values for console_flag_evaluations_total{result}.
+const (
+	// ResultOn: the flag evaluated to an enabled Evaluation (rolled in).
+	ResultOn = "on"
+	// ResultOff: the flag evaluated to a disabled Evaluation (flag disabled,
+	// out of scope, or excluded by rollout).
+	ResultOff = "off"
+	// ResultNotFound: no flag exists for the requested key.
+	ResultNotFound = "not_found"
+	// ResultError: evaluation failed for any other reason (e.g. store error).
+	ResultError = "error"
+)
+
+// New returns an Engine backed by the given store. Evaluation metrics are
+// discarded until SetRecorder is called.
 func New(s store.FlagStore) *Engine {
-	return &Engine{store: s}
+	e := &Engine{store: s}
+	e.SetRecorder(obs.Nop)
+	return e
+}
+
+// SetRecorder installs the instrumentation Recorder and resolves the
+// console_flag_evaluations_total{result} counters and the
+// console_flag_eval_duration_seconds histogram once. Labels are the bounded
+// result set only; flag and subject keys are never used as labels. A nil
+// Recorder is treated as obs.Nop. Call before the engine is shared between
+// goroutines (the composition root does so at construction).
+func (e *Engine) SetRecorder(r obs.Recorder) {
+	if r == nil {
+		r = obs.Nop
+	}
+	e.evalCount = make(map[string]obs.Counter, 4)
+	for _, res := range []string{ResultOn, ResultOff, ResultNotFound, ResultError} {
+		e.evalCount[res] = r.Counter("console_flag_evaluations_total", obs.L("result", res))
+	}
+	e.evalDur = r.Histogram("console_flag_eval_duration_seconds")
 }
 
 // SetEmitter installs an event sink (e.g. a notify.Dispatcher's Emit). Passing
@@ -90,7 +130,29 @@ func (e *Engine) Delete(ctx context.Context, key string) error {
 // The pipeline is: load → enabled gate → scope gate → rollout gate → variant
 // selection. The first gate that fails returns a disabled "off" Evaluation with
 // a Reason naming the gate.
+//
+// Each call is recorded in console_flag_evaluations_total{result} (see the
+// Result* constants) and console_flag_eval_duration_seconds; recording never
+// affects the returned Evaluation.
 func (e *Engine) Evaluate(ctx context.Context, key string, subj core.Subject) (core.Evaluation, error) {
+	start := time.Now()
+	ev, err := e.evaluate(ctx, key, subj)
+	e.evalDur.Observe(time.Since(start).Seconds())
+	switch {
+	case err == nil && ev.Enabled:
+		e.evalCount[ResultOn].Inc()
+	case err == nil:
+		e.evalCount[ResultOff].Inc()
+	case errors.Is(err, core.ErrNotFound):
+		e.evalCount[ResultNotFound].Inc()
+	default:
+		e.evalCount[ResultError].Inc()
+	}
+	return ev, err
+}
+
+// evaluate is the uninstrumented evaluation pipeline.
+func (e *Engine) evaluate(ctx context.Context, key string, subj core.Subject) (core.Evaluation, error) {
 	f, err := e.store.GetFlag(ctx, key)
 	if err != nil {
 		return core.Evaluation{}, err // store returns core.ErrNotFound when absent

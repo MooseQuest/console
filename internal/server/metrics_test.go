@@ -106,3 +106,21 @@ func TestMetricsInFlightReturnsToZero(t *testing.T) {
 		}
 	}
 }
+
+// A panicking handler is recovered into a 500, and the metrics layer (outside
+// recoverPanic) must still count it as a 500 against its route.
+func TestMetricsCountsRecoveredPanicAs500(t *testing.T) {
+	a := newMetricsApp(t, obs.NewMemory(), config.Config{Metrics: true})
+	s := New(a)
+	s.mux.HandleFunc("GET /boom", func(http.ResponseWriter, *http.Request) { panic("boom") })
+	h := s.Handler()
+
+	if code, _ := serve(t, h, "GET", "/boom"); code != 500 {
+		t.Fatalf("/boom = %d, want 500", code)
+	}
+	_, body := serve(t, h, "GET", "/metrics")
+	want := `console_http_requests_total{code="500",method="GET",route="GET /boom"} 1`
+	if !strings.Contains(body, want) {
+		t.Errorf("metrics missing %q:\n%s", want, body)
+	}
+}

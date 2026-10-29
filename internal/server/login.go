@@ -54,6 +54,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
+	// Login CSRF: there is no session yet, so no token to check, but a
+	// cross-origin browser POST must not be able to sign the victim in.
+	// Requests without Origin/Sec-Fetch-Site (CLI, same-origin) pass.
+	if err := crossOrigin.Check(r); err != nil {
+		s.csrfDeny(w, r, "POST /login", csrfReasonCrossOrigin)
+		return
+	}
 	key := clientKey(r)
 	if wait := s.throttle.Check(key); wait > 0 {
 		secs := int((wait + time.Second - 1) / time.Second)
@@ -92,7 +99,20 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleLogout destroys the caller's session (if any) and clears the cookie.
+//
+// Logout is CSRF-protected: when a live session exists the request must pass the
+// same cross-origin and token checks as other cookie-authenticated unsafe
+// requests, otherwise a third-party page could sign the user out. With no live
+// session there is nothing to destroy, so the request is harmless and allowed.
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if s.authn != nil {
+		if _, csrf, ok := s.sessionAuth(r); ok {
+			if reason := s.csrfCheck(r, csrf); reason != "" {
+				s.csrfDeny(w, r, "POST /logout", reason)
+				return
+			}
+		}
+	}
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		s.sessions.Delete(c.Value)
 	}
@@ -118,25 +138,31 @@ func (s *Server) authenticateToken(r *http.Request, token string) (auth.Principa
 // scope takes effect immediately. It fails closed if the Authenticator cannot
 // re-check digests.
 func (s *Server) sessionFromRequest(r *http.Request) (auth.Principal, bool) {
+	p, _, ok := s.sessionAuth(r)
+	return p, ok
+}
+
+// sessionAuth is sessionFromRequest plus the session's CSRF token.
+func (s *Server) sessionAuth(r *http.Request) (auth.Principal, string, bool) {
 	c, err := r.Cookie(sessionCookie)
 	if err != nil {
-		return auth.Principal{}, false
+		return auth.Principal{}, "", false
 	}
 	sess, ok := s.sessions.Get(c.Value)
 	if !ok {
-		return auth.Principal{}, false
+		return auth.Principal{}, "", false
 	}
 	da, ok := s.authn.(auth.DigestAuthenticator)
 	if !ok {
 		s.sessions.Delete(c.Value)
-		return auth.Principal{}, false
+		return auth.Principal{}, "", false
 	}
 	p, err := da.AuthenticateDigest(sess.Digest)
 	if err != nil {
 		s.sessions.Delete(c.Value)
-		return auth.Principal{}, false
+		return auth.Principal{}, "", false
 	}
-	return p, true
+	return p, sess.CSRF, true
 }
 
 // cookie builds the session cookie: HttpOnly, SameSite=Lax, Path=/, and Secure

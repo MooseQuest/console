@@ -64,6 +64,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Notify: notify.NewDispatcher(),
 	}
 
+	a.Flags.SetRecorder(rec)
+
 	if err := a.loadPlugins(cfg); err != nil {
 		_ = a.Close()
 		return nil, err

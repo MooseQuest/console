@@ -5,6 +5,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -43,9 +44,27 @@ type Config struct {
 	// MetricsAddr, when set, serves /metrics on a separate listener at this
 	// address instead of the main one (CONSOLE_METRICS_ADDR).
 	MetricsAddr string
+	// LogFormat selects the log encoding: "text" (default) or "json"
+	// (CONSOLE_LOG_FORMAT). Check with Validate.
+	LogFormat string
 	// Version is the build version reported by console_build_info. It is set
 	// by the caller (not read from the environment); empty becomes "unknown".
 	Version string
+}
+
+// Log formats accepted by Config.LogFormat.
+const (
+	LogText = "text"
+	LogJSON = "json"
+)
+
+// Validate reports a configuration error, e.g. an unknown CONSOLE_LOG_FORMAT.
+func (c Config) Validate() error {
+	switch c.LogFormat {
+	case LogText, LogJSON:
+		return nil
+	}
+	return fmt.Errorf("invalid CONSOLE_LOG_FORMAT %q: allowed values are %q or %q", c.LogFormat, LogText, LogJSON)
 }
 
 // Default returns the baseline configuration before env/flag overrides.
@@ -54,7 +73,8 @@ func Default() Config {
 		Addr: "127.0.0.1:8080",
 		DB:   "console.db",
 
-		Metrics: true,
+		Metrics:   true,
+		LogFormat: LogText,
 	}
 }
 
@@ -69,6 +89,7 @@ func Default() Config {
 //	CONSOLE_LLM_PLUGIN     path to an out-of-process LLM provider plugin
 //	CONSOLE_METRICS        "off"/"false"/"0"/"no" disables metrics (default on)
 //	CONSOLE_METRICS_ADDR   serve /metrics on this separate address (default: main listener)
+//	CONSOLE_LOG_FORMAT     "text" (default) or "json"; anything else fails Validate
 //
 // Provider-specific variables (e.g. ANTHROPIC_API_KEY, CLOUDFLARE_API_TOKEN,
 // CONSOLE_SLACK_WEBHOOK_URL, CONSOLE_MODEL) are read by the relevant plugin,
@@ -86,6 +107,9 @@ func FromEnv() Config {
 	c.StatusPlugins = splitList(os.Getenv("CONSOLE_STATUS_PLUGINS"))
 	c.LLMPlugin = os.Getenv("CONSOLE_LLM_PLUGIN")
 	c.MetricsAddr = strings.TrimSpace(os.Getenv("CONSOLE_METRICS_ADDR"))
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("CONSOLE_LOG_FORMAT"))); v != "" {
+		c.LogFormat = v
+	}
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("CONSOLE_METRICS"))) {
 	case "off", "false", "0", "no":
 		c.Metrics = false

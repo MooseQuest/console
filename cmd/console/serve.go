@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -45,13 +46,33 @@ func cmdServe(args []string, cfg config.Config) error {
 		fmt.Printf("console: pprof listening on %s\n", pp.Addr())
 	}
 
+	hsrv := server.New(a)
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           server.New(a).Handler(),
+		Handler:           hsrv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
+	}
+
+	// Optional dedicated metrics listener (CONSOLE_METRICS_ADDR).
+	var msrv *http.Server
+	if h := hsrv.MetricsHandler(); h != nil && cfg.MetricsAddr != "" {
+		msrv = &http.Server{
+			Addr:              cfg.MetricsAddr,
+			Handler:           h,
+			ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      60 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		}
+		ln, err := net.Listen("tcp", cfg.MetricsAddr)
+		if err != nil {
+			return fmt.Errorf("metrics listener: %w", err)
+		}
+		go func() { _ = msrv.Serve(ln) }()
+		fmt.Printf("console: metrics listening on %s\n", ln.Addr())
 	}
 
 	// Shut the server down when the signal context is cancelled.
@@ -61,6 +82,9 @@ func cmdServe(args []string, cfg config.Config) error {
 		defer cancel()
 		_ = srv.Shutdown(shutCtx)
 		_ = pp.Shutdown(shutCtx)
+		if msrv != nil {
+			_ = msrv.Shutdown(shutCtx)
+		}
 	}()
 
 	fmt.Printf("console %s listening on %s (db=%s, ai=%t)\n",

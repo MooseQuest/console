@@ -54,13 +54,14 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	if cfg.Metrics {
 		rec = obs.NewMemory()
 	}
+	st = obs.WrapStore(st, rec)
 
 	a := &App{
 		Obs:    rec,
 		Config: cfg,
 		Store:  st,
 		Flags:  flags.New(st),
-		Status: status.New(st, st, &status.HTTPProvider{}),
+		Status: status.New(st, st, obs.WrapProvider(&status.HTTPProvider{}, rec)),
 		Notify: notify.NewDispatcher(),
 	}
 
@@ -109,7 +110,7 @@ func (a *App) loadPlugins(cfg config.Config) error {
 			return fmt.Errorf("load status plugin: %w", err)
 		}
 		a.closers = append(a.closers, closeFn)
-		a.Status.Register(p)
+		a.Status.Register(obs.WrapProvider(p, a.Obs))
 	}
 
 	if cfg.LLMPlugin != "" {

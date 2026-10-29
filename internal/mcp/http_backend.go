@@ -94,11 +94,44 @@ func NewHTTPBackend(addr string, opts ...HTTPOption) (Backend, error) {
 	if u.Host == "" {
 		return nil, fmt.Errorf("mcp: invalid -addr %q: no host", addr)
 	}
+	if o.token != "" && u.Scheme != "http" && u.Scheme != "https" {
+		return nil, fmt.Errorf("mcp: unsupported -addr scheme %q: use http or https", u.Scheme)
+	}
 	if o.token != "" && u.Scheme == "http" && !o.insecureToken && !isLoopbackHost(u.Hostname()) {
 		return nil, fmt.Errorf("mcp: refusing to send a bearer token over plain http to non-loopback host %q; use https:// or pass -insecure-token", u.Hostname())
 	}
 	base := strings.TrimRight(u.Scheme+"://"+u.Host+u.Path, "/")
-	return &httpBackend{base: base, token: o.token, http: &http.Client{Timeout: 30 * time.Second}}, nil
+	client := &http.Client{Timeout: 30 * time.Second}
+	if o.token != "" {
+		client.CheckRedirect = refuseCrossOriginRedirect
+	}
+	return &httpBackend{base: base, token: o.token, http: client}, nil
+}
+
+// refuseCrossOriginRedirect stops a redirect whose scheme, host or port differs
+// from the original request, so the bearer token is never forwarded to another
+// origin (including an https->http downgrade). The error never contains the token.
+func refuseCrossOriginRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("stopped after 10 redirects")
+	}
+	orig := via[0].URL
+	if !strings.EqualFold(req.URL.Scheme, orig.Scheme) || !strings.EqualFold(req.URL.Hostname(), orig.Hostname()) ||
+		effectivePort(req.URL) != effectivePort(orig) {
+		return fmt.Errorf("refusing cross-origin redirect from %s://%s to %s://%s while a token is configured",
+			orig.Scheme, orig.Host, req.URL.Scheme, req.URL.Host)
+	}
+	return nil
+}
+
+func effectivePort(u *url.URL) string {
+	if p := u.Port(); p != "" {
+		return p
+	}
+	if strings.EqualFold(u.Scheme, "https") {
+		return "443"
+	}
+	return "80"
 }
 
 // do issues a JSON request and decodes a JSON response into out (when non-nil).

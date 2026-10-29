@@ -17,6 +17,44 @@ import (
 
 // TestHTTPBackend exercises the -addr path end to end: it stands up the real
 // Console JSON API over httptest and drives it through NewHTTPBackend.
+func TestHTTPBackendRefusesCrossOriginRedirect(t *testing.T) {
+	var leaked bool
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			leaked = true
+		}
+		w.Write([]byte(`[]`))
+	}))
+	defer plain.Close()
+	tlsSrv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, plain.URL+r.URL.Path, http.StatusTemporaryRedirect)
+	}))
+	defer tlsSrv.Close()
+
+	const tok = "csk_secret_token"
+	b, err := NewHTTPBackend(tlsSrv.URL, WithToken(tok))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.(*httpBackend).http.Transport = tlsSrv.Client().Transport
+	_, err = b.ListFlags(context.Background())
+	if err == nil {
+		t.Fatal("want redirect refusal error")
+	}
+	if strings.Contains(err.Error(), tok) {
+		t.Errorf("error leaks token: %v", err)
+	}
+	if leaked {
+		t.Error("token reached the redirect target")
+	}
+}
+
+func TestNewHTTPBackendRejectsOddSchemeWithToken(t *testing.T) {
+	if _, err := NewHTTPBackend("ftp://example.com", WithToken("x")); err == nil {
+		t.Error("want error for ftp scheme with token")
+	}
+}
+
 func TestHTTPBackend(t *testing.T) {
 	ctx := context.Background()
 	a, err := app.New(ctx, config.Config{DB: ""})

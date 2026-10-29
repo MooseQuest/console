@@ -77,10 +77,12 @@ console mcp -addr https://console.example.com -write -token-file ~/.console-writ
 - The client refuses to send a token over plain `http://` to a non-loopback
   host. Use `https://`, or pass `-insecure-token` to override (not recommended).
   Loopback (`localhost`, `127.0.0.0/8`, `::1`) is always allowed.
+- When a token is set, only `http`/`https` addresses are accepted, and redirects
+  to a different scheme, host or port are refused so the token is never
+  forwarded cross-origin.
 
 > In the default in-process mode there is no HTTP and no token: the trust
 > boundary is the local user who launched the subprocess.
-> subprocess.
 
 ## Tools
 

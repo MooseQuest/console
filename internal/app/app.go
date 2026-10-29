@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/moosequest/console/internal/auth"
 	"github.com/moosequest/console/internal/config"
 	"github.com/moosequest/console/internal/flags"
 	"github.com/moosequest/console/internal/llm"
@@ -35,6 +36,9 @@ type App struct {
 	// Obs is the instrumentation Recorder. Always non-nil: obs.Nop when
 	// cfg.Metrics is false, otherwise an in-memory registry (*obs.Memory).
 	Obs obs.Recorder
+	// Auth authenticates API requests. Nil when auth is not enabled (no tokens
+	// configured, or CONSOLE_AUTH=disabled); the server then runs open.
+	Auth auth.Authenticator
 
 	// closers tears down loaded plugin subprocesses (notifiers) on Close.
 	closers []func() error
@@ -97,6 +101,15 @@ func New(ctx context.Context, cfg config.Config, opts ...Option) (*App, error) {
 		Flags:  flags.New(st),
 		Status: status.New(st, st, obs.WrapProvider(&status.HTTPProvider{}, rec)),
 		Notify: notify.NewDispatcher(),
+	}
+
+	if cfg.AuthEnabled() {
+		a.Auth = auth.NewStatic(map[auth.Scope][]string{
+			auth.Admin: cfg.Tokens.Admin,
+			auth.Write: cfg.Tokens.Write,
+			auth.Read:  cfg.Tokens.Read,
+			auth.Eval:  cfg.Tokens.Eval,
+		})
 	}
 
 	a.Flags.SetRecorder(rec)

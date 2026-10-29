@@ -33,6 +33,34 @@ func TestNewSetsObs(t *testing.T) {
 	}
 }
 
+func TestNewWiresAuth(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mode   string
+		tokens []string
+		want   bool
+	}{
+		{"no tokens", config.AuthAuto, nil, false},
+		{"tokens", config.AuthAuto, []string{"t"}, true},
+		{"disabled", config.AuthDisabled, []string{"t"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := config.Default()
+			cfg.DB = ":memory:"
+			cfg.AuthMode = tc.mode
+			cfg.Tokens.Admin = tc.tokens
+			a, err := New(context.Background(), cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer a.Close()
+			if (a.Auth != nil) != tc.want {
+				t.Fatalf("Auth set = %v, want %v", a.Auth != nil, tc.want)
+			}
+		})
+	}
+}
+
 func TestNewRegistersRuntimeCollector(t *testing.T) {
 	cfg := config.Default()
 	cfg.DB = ":memory:"

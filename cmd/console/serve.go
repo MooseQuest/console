@@ -10,6 +10,7 @@ import (
 
 	"github.com/moosequest/console/internal/app"
 	"github.com/moosequest/console/internal/config"
+	"github.com/moosequest/console/internal/pprofsrv"
 	"github.com/moosequest/console/internal/server"
 )
 
@@ -32,6 +33,18 @@ func cmdServe(args []string, cfg config.Config) error {
 	}
 	defer a.Close()
 
+	// Opt-in pprof listener (CONSOLE_PPROF_ADDR). A refused or unbindable
+	// address is a startup error.
+	pprofAddr, pprofRemote := pprofsrv.FromEnv()
+	pp, err := pprofsrv.Start(pprofAddr, pprofRemote)
+	if err != nil {
+		return err
+	}
+	if pp != nil {
+		defer pp.Shutdown(context.Background())
+		fmt.Printf("console: pprof listening on %s\n", pp.Addr())
+	}
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           server.New(a).Handler(),
@@ -47,6 +60,7 @@ func cmdServe(args []string, cfg config.Config) error {
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(shutCtx)
+		_ = pp.Shutdown(shutCtx)
 	}()
 
 	fmt.Printf("console %s listening on %s (db=%s, ai=%t)\n",

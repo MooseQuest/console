@@ -234,6 +234,33 @@ prevent a sustained request flood from a network-accessible endpoint. Operators
 who expose Console on a non-loopback interface should enforce rate limiting at
 the reverse proxy layer.
 
+## 7. pprof profiling endpoint
+
+Go's `net/http/pprof` exposes heap, goroutine, CPU-profile and command-line
+data. It is **unauthenticated** and can reveal memory contents and internals,
+so Console treats it as a debugging tool, not a service.
+
+- **Off by default.** Nothing listens unless `CONSOLE_PPROF_ADDR` is set
+  (e.g. `CONSOLE_PPROF_ADDR=127.0.0.1:6060`).
+- **Separate listener and mux.** pprof is served on its own port from a
+  dedicated mux. It is never registered on `http.DefaultServeMux` or the main
+  API/dashboard mux, so enabling it does not change the main listener's surface
+  (a test asserts `/debug/pprof/*` is 404 there).
+- **Loopback guard.** Only `localhost` and loopback IP literals
+  (`127.0.0.1:6060`, `[::1]:6060`, `localhost:6060`) are accepted. Wildcard
+  and routable addresses (`:6060`, `0.0.0.0:6060`, `10.0.0.5:6060`) and
+  hostnames other than `localhost` are refused.
+- **Refusal is a startup error.** `console serve` exits non-zero with a message
+  naming the address and the override, rather than silently disabling pprof.
+- **Override.** `CONSOLE_PPROF_ALLOW_REMOTE=1` disables the guard. Only use it
+  behind a network control you trust (private network, firewall, authenticating
+  proxy); there is no authentication on the endpoint itself.
+- **Shutdown.** The listener is closed gracefully with the main server on
+  SIGINT/SIGTERM.
+
+Usage: `go tool pprof http://127.0.0.1:6060/debug/pprof/heap`. For remote
+hosts prefer an SSH tunnel to the loopback address over the override.
+
 ---
 
 ## Summary: current state and roadmap
@@ -247,5 +274,6 @@ the reverse proxy layer.
 | Secrets leaking into logs via URL error messages | Medium | ✅ Credential redaction done (v0.2.1) |
 | Unbounded LLM reads / no server timeouts / RunAll fan-out | Medium | ✅ All three bounded (v0.2.1) |
 | Default bind to all interfaces | High | ✅ Changed to loopback by default (v0.2.1) |
+| pprof exposure | Medium | ✅ Opt-in, separate loopback-only listener (override required for remote) |
 | Security headers | Low | ✅ Restrictive headers + CSP middleware added (v0.2.1) |
 | htmx from CDN without SRI | Low | 🔜 Vendor + SRI; drop the CDN CSP exception |

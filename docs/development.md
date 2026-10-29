@@ -131,6 +131,10 @@ scripts/check-binary-size.sh                                       # size gate +
 The allocation check runs in the normal test suite; the wall-clock latency check
 needs `CONSOLE_PERF=1` (CI's `perf budget` job sets it). The size baseline is the
 byte size of the stripped linux/amd64 build in `.github/binary-size-baseline`.
+The baseline must come from the `go.mod` toolchain: the script pins
+`GOTOOLCHAIN=go<go.mod version>` itself, so `--update` gives the same number as CI
+regardless of the Go installed locally. Never hand-edit it or measure with another
+toolchain.
 When a change legitimately grows the binary, run
 `scripts/check-binary-size.sh --update`, commit the new baseline, and justify the
 growth in the PR description.

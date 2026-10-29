@@ -10,6 +10,11 @@ cd "$(dirname "$0")/.."
 baseline_file=.github/binary-size-baseline
 budget=204800 # 200 KB
 
+# Build with exactly the go.mod floor toolchain (as scripts/dist.sh does), so the
+# measured size -- and therefore --update -- is reproducible regardless of the
+# locally installed Go. Go fetches the toolchain on demand.
+export GOTOOLCHAIN="go$(sed -n 's/^go //p' go.mod)"
+
 if go list -deps ./cmd/console | grep -E '^go\.opentelemetry\.io'; then
   echo "FAIL: default binary depends on OpenTelemetry (see packages above)" >&2
   exit 1

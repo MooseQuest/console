@@ -108,9 +108,9 @@ idle or 7 days absolute.
   token (`X-CSRF-Token` header for htmx, `csrf_token` form field) and pass
   Go's cross-origin check (`Origin` / `Sec-Fetch-Site`). Requests with an
   `Authorization` header never use the cookie and are exempt from CSRF.
-- **Login throttling.** After 3 failed logins a client is locked out with
-  exponentially growing delays (2s, 4s, ... capped at 15 minutes) and receives
-  `429` with `Retry-After`. State is in memory and bounded.
+- **Login throttling.** A client gets 3 free failed logins; the 4th
+  failure starts a 2s lockout that doubles on each further failure (2s, 4s, 8s,
+  ...) up to 15 minutes. Locked-out clients receive `429` with `Retry-After`. State is in memory and bounded.
 
 **Reverse-proxy caveat.** The throttle keys on the TCP peer address
 (`RemoteAddr`). `X-Forwarded-For` is deliberately ignored because any client can

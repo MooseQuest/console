@@ -97,9 +97,13 @@ CONSOLE_ADDR=:8080 ./console qr
 **same Wi-Fi**. (Sign in with your token. Traffic is plain HTTP, so the token
 crosses your network unencrypted — only do this on a trusted LAN.)
 
-For access from **anywhere**, run a tunnel and QR-encode its URL — the tunnel is HTTPS, and Console's token login still applies:
+For access from **anywhere**, run a tunnel and QR-encode its URL — the tunnel is HTTPS, and Console's token login still applies.
+Set `CONSOLE_ADMIN_TOKENS` first: a tunnel exposes Console beyond your machine,
+so never run it without a token.
 
 ```bash
+export CONSOLE_ADMIN_TOKENS=$(./console auth token)   # 1. set a token first
+./console serve &                                      # 2. start Console with it
 cloudflared tunnel --url http://127.0.0.1:8080      # -> https://<name>.trycloudflare.com
 ./console qr -url https://<name>.trycloudflare.com
 ```

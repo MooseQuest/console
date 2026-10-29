@@ -42,6 +42,39 @@ jobs:
       - name: Test
         run: go test ./...
 
+  otel:
+    name: contrib/otel (nested module)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            contrib/otel/go.sum
+      - name: Build (static, no cgo)
+        working-directory: contrib/otel
+        run: CGO_ENABLED=0 go build ./...
+      - name: Vet
+        working-directory: contrib/otel
+        run: go vet ./...
+      - name: Test
+        working-directory: contrib/otel
+        run: go test -race ./...
+      - name: go.mod is tidy
+        working-directory: contrib/otel
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: govulncheck
+        working-directory: contrib/otel
+        run: |
+          GOTOOLCHAIN=auto go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
   perf:
     name: perf budget
     runs-on: ubuntu-latest
@@ -68,7 +101,7 @@ jobs:
           go-version-file: go.mod
       - name: gofmt
         run: |
-          unformatted=$(gofmt -l cmd internal)
+          unformatted=$(gofmt -l cmd internal contrib)
           if [ -n "$unformatted" ]; then
             echo "These files need gofmt:"; echo "$unformatted"; exit 1
           fi

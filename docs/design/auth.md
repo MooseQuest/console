@@ -1,6 +1,6 @@
 # API authentication and authorization — design
 
-Status: proposed · Issue: #61 · Epic: #62 · Owner: Kristerpher Henderson
+Status: proposed (operator decisions applied) · Issue: #61 · Epic: #62 · Owner: Kristerpher Henderson
 
 ## 1. Context
 
@@ -58,7 +58,7 @@ Facts about the current code that shape the design:
 | CSRF | Per-session synchronizer token plus `http.CrossOriginProtection`; bearer-authenticated requests are exempt. |
 | `/healthz` | New minimal unauthenticated liveness endpoint. `/api/health` requires `read`. |
 | `/metrics` | Requires `read` when auth is enabled. Unauthenticated only while auth is off (loopback). Separate metrics listener must be loopback or authenticated. |
-| Startup policy | Refuse non-loopback bind without auth; staged rollout. |
+| Startup policy | Refuse non-loopback bind without auth, effective immediately in the release that ships auth (breaking change for 0.x). |
 | Clients | `console mcp -addr` gains token via env/file; CLI needs nothing. |
 | Config secrets | Write-only: redacted on every read path. |
 | SSO/OIDC, per-user accounts | Deferred; the `Authenticator` seam leaves room. |
@@ -99,7 +99,7 @@ Unauthenticated always: `GET /healthz`, `GET /static/`, `GET /login`,
 `POST /login` (rate-limited). Everything else needs a principal.
 
 `/healthz` is added as a new endpoint returning `200 ok` with no body detail.
-The issue text mentions `/healthz`, but today only `/api/health` exists and it
+The issue text mentions `/healthz` (approved), but today only `/api/health` exists and it
 discloses component inventory, so it is moved behind `read`. Docker and
 Kubernetes probes should use `/healthz`.
 
@@ -131,7 +131,7 @@ APM card #47 must therefore register `/metrics` through the same scope table.
 | `CONSOLE_READ_TOKENS` | Tokens granting `read` |
 | `CONSOLE_EVAL_TOKENS` | Tokens granting `eval` |
 | `*_FILE` variants | Read the list from a file (one token per line, mode 0600 recommended) |
-| `CONSOLE_AUTH` | `auto` (default) or `disabled` (explicit opt-out) |
+| `CONSOLE_AUTH` | `auto` (default) or `disabled` (documented escape hatch only; never used in quickstarts) |
 
 Multiple tokens per scope make rotation zero-downtime: add the new token, move
 clients, remove the old token, restart (SIGHUP reload is a nice-to-have, not
@@ -299,17 +299,45 @@ Rollback: older binaries ignore the extra tables; dropping them loses only keys.
 
 ## 6. Rollout
 
-1. **Dark (release N):** auth code ships, active only when tokens are
-   configured. Non-loopback without auth logs a loud warning. `/healthz` added.
-2. **Default-deny (release N+1):** startup refusal enabled (section 4.5). The
-   Docker image binds `0.0.0.0`, so docs and compose file must pass
-   `CONSOLE_ADMIN_TOKENS` (or the explicit opt-out) before this ships.
-3. **Phase 2:** managed keys and audit events.
-4. SECURITY.md and runtime-hardening.md are updated in the release that makes
-   auth available, not after.
+Operator decision: **no staged warn-then-refuse period.** Default-deny ships in
+the same release as the auth code.
 
-Since the project is `0.x`, the breaking startup change is acceptable but must
-be called out in release notes.
+1. **Release N (auth + default-deny, breaking):** auth middleware, token
+   config, `/healthz`, login/CSRF, and startup refusal (section 4.5) all land
+   together. A non-loopback bind without auth exits with an error. Loopback
+   without tokens still runs open, as today.
+2. **Packaging in the same release:** `docs/docker.md`, `docker-compose.yml`,
+   and all quickstarts require a token. The quickstart generates one
+   (`docker run --rm ghcr.io/moosequest/console auth token`, or
+   `export CONSOLE_ADMIN_TOKENS=$(console auth token)`) and passes it to the
+   container; there is **no** `CONSOLE_AUTH=disabled` in any quickstart.
+   `CONSOLE_AUTH=disabled` is documented only in runtime-hardening.md as an
+   escape hatch for operators who front Console with their own authenticating
+   proxy, with the startup warning described in 4.5.
+3. **Phase 2:** managed keys and audit events (release N+1 or later; additive).
+4. SECURITY.md and runtime-hardening.md are updated in release N, not after.
+
+### Breaking change and release notes (0.x)
+
+Release notes must lead with a **BREAKING** entry stating:
+- `console serve` (and the container) now refuses to start on a non-loopback
+  address (including `:8080` and `0.0.0.0`) unless a token is configured or
+  `CONSOLE_AUTH=disabled` is set.
+- `GET /api/health` now needs a `read` token; use `GET /healthz` for
+  unauthenticated liveness probes (update Docker `HEALTHCHECK`, Kubernetes
+  probes, uptime monitors).
+- `/metrics` needs a `read` token once auth is enabled (Prometheus
+  `authorization` scrape setting).
+- `console mcp -addr` against an authenticated server needs `CONSOLE_TOKEN` or
+  `-token-file`.
+- Upgrade checklist: generate a token, set `CONSOLE_ADMIN_TOKENS` (or `_FILE`),
+  update probes and scrapers; existing proxy-fronted setups can keep working by
+  adding a token or setting `CONSOLE_AUTH=disabled`.
+
+Migration for existing deployments is configuration-only (no data migration);
+rollback to the previous release restores the old open behaviour. Because the
+project is `0.x`, a breaking startup change is acceptable and is preferred over
+leaving a window in which exposed instances stay open.
 
 ## 7. Security and privacy checklist
 
@@ -327,21 +355,22 @@ be called out in release notes.
 - **Breach response:** rotate by adding a new token and removing the old one;
   removal revokes live sessions at once. Report via SECURITY.md.
 - **Kill-switch:** removing a token revokes it; `CONSOLE_AUTH=disabled`
-  exists only as the deliberate opt-out, never as an emergency default.
+  is a documented escape hatch for proxy-fronted deployments, never a default
+  and never in quickstarts.
 - **Timing/DoS:** constant-time digest comparison; failed-auth throttling;
   body size limits already in place.
 
-## 8. Open questions (operator decision)
+## 8. Decisions and open questions
 
-1. Confirm `/api/health` moves behind `read` and a new `/healthz` is the probe
-   endpoint (breaking for anyone polling `/api/health` unauthenticated).
-2. Confirm staged default-deny (release N warn, N+1 refuse) versus refusing
-   immediately.
-3. Docker image default: require a token (recommended) or keep an explicit
-   opt-out in the quickstart.
-4. Is `eval` as a separate scope worth the extra tier now? (Recommended: yes.)
-5. Deferred: OIDC/SSO, per-user accounts, SIGHUP token reload, per-key rate
-   limits, mTLS. None block phase 1.
+Resolved by the operator (PR #63 review):
+1. `/api/health` moves behind `read`; minimal unauthenticated `/healthz` added.
+2. Default-deny is immediate (no staged warn period); documented as breaking.
+3. Docker/quickstart/compose require a generated token; no opt-out in the
+   quickstart. `CONSOLE_AUTH=disabled` stays a documented escape hatch only.
+4. `eval` remains a separate scope.
+
+Deferred (none block phase 1): OIDC/SSO, per-user accounts, SIGHUP token
+reload, per-key rate limits, mTLS.
 
 ## 9. Proposed implementation cards
 

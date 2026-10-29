@@ -62,49 +62,57 @@ Implementations
 - `obs.Memory` — stdlib in-process registry that renders Prometheus text
   exposition format (hand-rolled; counters, gauges, fixed-bucket histograms).
   Spans are no-ops that still propagate a request ID.
-- `contrib/otel` (optional, **nested Go module**; decided, see 4.1.1) — OTel
-  SDK adapter exporting traces and metrics over OTLP. Not linked into, and not
+- OTel adapter (optional; packaging **under review**, see 4.1.1; recommended
+  as a nested module at `contrib/otel`) — OTel SDK adapter exporting traces and metrics over OTLP. Not linked into, and not
   in the dependency graph of, the default binary.
 
-#### 4.1.1 Decision: OTel packaging (resolves #51)
+#### 4.1.1 OTel packaging (resolves #51) — recommendation, NOT yet decided
 
-**Decision: a nested Go module at `contrib/otel/` with its own `go.mod`, plus a
-thin `contrib/otel/cmd/console-otel` main that runs the normal Console with an
-OTel-backed `obs.Recorder`.** It is not a build tag and not a go-plugin binary.
+Status: **open, needs an operator decision.** The first draft recommended a
+nested module; on review the build-tag option was re-evaluated seriously. Both
+survive; the go-plugin option does not.
 
-Options considered
+Correction to earlier text: OTel is **not** currently in `go.mod`/`go.sum`
+(only grpc and protobuf are), so any in-tree option adds a new dependency tree
+to the root module graph, not a promotion of an existing one.
 
-| Option | Verdict |
-|---|---|
-| Build tag `otel` in the root module | Rejected. Default `go build` would exclude OTel, but the root `go.mod`/`go.sum` must still list the whole OTel SDK tree. That widens what Dependabot, `govulncheck`, SBOM and license scanners see for every user, and contradicts the supply-chain posture (`docs/security/supply-chain.md`). "No OTel in default" becomes a CI convention instead of a structural fact. |
-| Separate go-plugin binary (like the Slack/Postgres plugins) | Rejected for the Recorder. `Recorder` is synchronous and on the hot path (budget: ~1 us and zero allocations per flag evaluation); a gRPC hop per counter increment or span cannot meet that, and context propagation across the process boundary is lossy. A plugin could only receive batched, already-aggregated data, which is a new proto seam and a different feature. |
-| Separate module (chosen) | Root `go.mod` is untouched: no OTel, no new transitive deps, and `go list -deps ./...` is clean by construction. The adapter, its dependencies and its release cadence are isolated. |
+Eliminated: **separate go-plugin binary.** `Recorder` is synchronous and on the
+hot path (budget: ~1 us, zero allocations per flag evaluation). A gRPC hop per
+counter increment or span cannot meet that and loses context propagation. A
+plugin could only receive batched, already-aggregated data, which is a
+different feature and a new proto seam.
 
-Mechanics
-- `contrib/otel/go.mod` requires `github.com/moosequest/console` and carries a
-  `replace ... => ../..` for in-repo builds (valid because it is the main module
-  of its own build). A root `go.work` is for local development only.
-- The Go `internal/` rule is path-based, so the nested module (import path under
-  `github.com/moosequest/console/`) may import `internal/obs` and `internal/app`.
-  The adapter must still only use the `Recorder` interface.
-- `cmd/console/main.go` is first reduced to a shim over a new `internal/cli`
-  `Main(opts)` entry point whose options accept an `obs.Recorder` factory. Both
-  `cmd/console` and `console-otel` call it; no code is duplicated.
-- `console-otel` is released as a separate artifact (own container tag
-  `-otel`); the default image and binary are unchanged.
-- `CONSOLE_OTLP_ENDPOINT` is honoured only by `console-otel`; the default binary
-  logs a clear "OTLP not built in" error if it is set.
-- CI: root job asserts `go list -deps ./... | grep -c go.opentelemetry.io` is 0;
-  `contrib/otel` has its own build, test, and `govulncheck` jobs.
-- Metrics-only users need no adapter: the OpenTelemetry Collector can scrape
-  `/metrics` (with a `read` bearer token, see [auth.md](auth.md)). The adapter is
-  for traces and native OTLP push.
+Common to both remaining options: the default `go build` links no OTel, so the
+default binary-size budget (~200 KB growth, section 4.6) is unaffected; the
+OTel-enabled binary is several MB larger either way and is outside that budget.
+Metrics-only users need no adapter: the OpenTelemetry Collector can scrape
+`/metrics` with a `read` token ([auth.md](auth.md)). The adapter is for traces
+and native OTLP push.
 
-Risks: two release artifacts to version in lockstep (the nested module pins the
-root version), and one `internal/cli` refactor. Accepted: both are smaller than
-permanently carrying the OTel tree in the root module. If the adapter's API
-surface proves stable, it can later be extracted to its own repository without
-redesign because it only depends on the `Recorder` interface.
+| Criterion | A. Build tag `otel` in root module | B. Nested module `contrib/otel` + `console-otel` main |
+|---|---|---|
+| Root `go.mod` / `go.sum` | Gains the OTel SDK + exporter tree (dozens of modules) | Untouched |
+| "No OTel in default build" | True for `go build`/`go list -deps`, enforced by a CI check; true in the module graph only lazily | Structurally true: root module has no OTel at all |
+| Dependabot | OTel bumps open PRs against the root module (noisy; frequent releases) unless ignore rules or grouping are configured | Separate `directory` entry; can be grouped, slowed, or paused independently |
+| `govulncheck` | Default run ignores tagged code; must add a second `-tags otel` run. Module-graph scanners (Trivy, GitHub dependency graph, SBOM from `go.mod`) report OTel for every user of the default binary | Root scan stays clean; separate job for the module |
+| Refactor needed | Small: a `//go:build otel` file in `cmd/console` registers a Recorder factory. No `internal/cli` | Larger: `cmd/console/main.go` becomes a shim over a new `internal/cli.Main(opts)` so a second `main` can reuse it (about one card, mostly mechanical, touches every subcommand wiring) |
+| Release artifacts | One module, one tag; two binaries/images via `-tags otel` in the same pipeline | Second module versioned in lockstep (`replace ../..` for in-repo builds, `go.work` for dev), own tag/image, extra CI jobs |
+| `internal/` access | Native | Allowed (path-based rule) but couples a second module to unstable internals |
+| Consumers who `go install`/import root | Pay module-graph cost of OTel they never use | Unaffected |
+| Extraction later | Hard to remove from go.mod once users depend on tag | Can move to its own repo with no redesign (depends only on `Recorder`) |
+| Fits CLAUDE.md "stdlib-first, minimal deps" | Weaker: dependency present in the main module graph | Stronger |
+
+Recommendation: **B (nested module)**, because the project's stated bias is a
+minimal root dependency graph and supply-chain posture
+(`docs/security/supply-chain.md`), and B makes that structural instead of a CI
+convention. B costs one mechanical refactor card and a second artifact to
+version. If those costs outweigh the scanner and Dependabot noise for you, **A
+is acceptable** provided Dependabot ignore/grouping rules, a `-tags otel`
+govulncheck job, and a `go list -deps` CI guard on the default build ship with
+it.
+
+**Decision required (Kristerpher):** choose A or B. Until chosen, #51 stays
+blocked; the `internal/cli` refactor card is only filed if B is chosen.
 
 Label cardinality is bounded by construction: route labels use the registered
 mux pattern (`GET /api/flags/{key}`), never the raw path; flag keys and
@@ -188,6 +196,6 @@ growth under ~200 KB.
   Main listener; once auth lands it requires the `read` scope (see
   [auth.md](auth.md) section 3.4). A separate address is recommended and must be
   loopback or authenticated.
-- ~~OTel adapter packaging~~ Resolved in 4.1.1: nested Go module
-  (`contrib/otel`) with its own `console-otel` main.
+- **OTel adapter packaging: OPEN.** Recommendation B (nested module) vs A
+  (build tag); see the tradeoff table in 4.1.1. Needs an operator decision.
 - Do we want an opt-in anonymous usage ping as a separate follow-up? Out of scope here.

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/moosequest/console/internal/app"
+	"github.com/moosequest/console/internal/auth"
 	"github.com/moosequest/console/internal/core"
 	"github.com/moosequest/console/internal/web"
 )
@@ -27,6 +28,13 @@ type Server struct {
 	mux  *http.ServeMux
 	tmpl *template.Template
 	log  *slog.Logger
+
+	// authn authenticates requests; nil disables authorization entirely (the
+	// middleware is a pass-through). See WithAuthenticator.
+	authn auth.Authenticator
+	// patterns records every pattern registered on the mux, so tests can
+	// assert each has an entry in routeScopes.
+	patterns []string
 }
 
 // New builds a Server over a. It parses the embedded dashboard templates and
@@ -53,41 +61,60 @@ func parseTemplates() *template.Template {
 // Routes registers every API and UI route on the mux. It is safe to call once
 // during construction.
 func (s *Server) Routes() {
+	// Unauthenticated liveness probe: no body detail, no component inventory.
+	s.handleFunc("GET /healthz", s.handleHealthz)
+
 	// JSON API.
-	s.mux.HandleFunc("GET /api/health", s.handleHealth)
+	s.handleFunc("GET /api/health", s.handleHealth)
 
-	s.mux.HandleFunc("GET /api/flags", s.handleListFlags)
-	s.mux.HandleFunc("POST /api/flags", s.handleCreateFlag)
-	s.mux.HandleFunc("GET /api/flags/{key}", s.handleGetFlag)
-	s.mux.HandleFunc("PUT /api/flags/{key}", s.handleUpdateFlag)
-	s.mux.HandleFunc("DELETE /api/flags/{key}", s.handleDeleteFlag)
-	s.mux.HandleFunc("POST /api/flags/{key}/evaluate", s.handleEvaluateFlag)
+	s.handleFunc("GET /api/flags", s.handleListFlags)
+	s.handleFunc("POST /api/flags", s.handleCreateFlag)
+	s.handleFunc("GET /api/flags/{key}", s.handleGetFlag)
+	s.handleFunc("PUT /api/flags/{key}", s.handleUpdateFlag)
+	s.handleFunc("DELETE /api/flags/{key}", s.handleDeleteFlag)
+	s.handleFunc("POST /api/flags/{key}/evaluate", s.handleEvaluateFlag)
 
-	s.mux.HandleFunc("GET /api/components", s.handleListComponents)
-	s.mux.HandleFunc("POST /api/components", s.handleCreateComponent)
-	s.mux.HandleFunc("GET /api/components/{key}", s.handleGetComponent)
-	s.mux.HandleFunc("PUT /api/components/{key}", s.handleUpdateComponent)
-	s.mux.HandleFunc("DELETE /api/components/{key}", s.handleDeleteComponent)
-	s.mux.HandleFunc("POST /api/components/{key}/check", s.handleCheckComponent)
+	s.handleFunc("GET /api/components", s.handleListComponents)
+	s.handleFunc("POST /api/components", s.handleCreateComponent)
+	s.handleFunc("GET /api/components/{key}", s.handleGetComponent)
+	s.handleFunc("PUT /api/components/{key}", s.handleUpdateComponent)
+	s.handleFunc("DELETE /api/components/{key}", s.handleDeleteComponent)
+	s.handleFunc("POST /api/components/{key}/check", s.handleCheckComponent)
 
 	// Dashboard UI.
-	s.mux.HandleFunc("GET /{$}", s.handleOverview)
-	s.mux.HandleFunc("GET /flags", s.handleFlagsPage)
-	s.mux.HandleFunc("POST /flags/{key}/toggle", s.handleToggleFlag)
-	s.mux.HandleFunc("GET /status", s.handleStatusPage)
-	s.mux.HandleFunc("POST /status/{key}/check", s.handleCheckComponentUI)
+	s.handleFunc("GET /{$}", s.handleOverview)
+	s.handleFunc("GET /flags", s.handleFlagsPage)
+	s.handleFunc("POST /flags/{key}/toggle", s.handleToggleFlag)
+	s.handleFunc("GET /status", s.handleStatusPage)
+	s.handleFunc("POST /status/{key}/check", s.handleCheckComponentUI)
 
 	// Static assets (CSS, vendored JS).
 	static := http.FileServerFS(web.Static)
-	s.mux.Handle("GET /static/", static)
+	s.handle("GET /static/", static)
 
 	// Prometheus metrics on the main listener, unless metrics are off (404) or
 	// a dedicated listener is configured (CONSOLE_METRICS_ADDR).
 	if s.app.Config.MetricsAddr == "" {
 		if h := metricsHandler(s.app.Obs); h != nil {
-			s.mux.Handle("GET /metrics", h)
+			s.handle("GET /metrics", h)
 		}
 	}
+}
+
+// handle registers h on the mux and records the pattern for the scope-table
+// coverage test.
+func (s *Server) handle(pattern string, h http.Handler) {
+	s.patterns = append(s.patterns, pattern)
+	s.mux.Handle(pattern, h)
+}
+
+// handleFunc is handle for a handler function.
+func (s *Server) handleFunc(pattern string, h http.HandlerFunc) { s.handle(pattern, h) }
+
+// handleHealthz is the minimal liveness probe: 200 "ok", nothing else.
+func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = io.WriteString(w, "ok\n")
 }
 
 // WithLogger sets the logger used for request and panic logs (default
@@ -100,12 +127,13 @@ func (s *Server) WithLogger(l *slog.Logger) *Server {
 }
 
 // Handler returns the mux wrapped with metrics (outermost), request-ID,
-// logging and panic-recovery middleware. Request-ID sits inside metrics but
-// outside logging/recovery so every log line, and later auth failures, carry
-// an ID.
+// logging, panic-recovery, security-headers and auth middleware. Request-ID
+// sits inside metrics but outside logging/recovery so every log line and auth
+// failure carries an ID; auth sits inside metrics so failures are counted. The
+// auth middleware is a pass-through unless WithAuthenticator was given one.
 func (s *Server) Handler() http.Handler {
 	return newHTTPMetrics(s.app.Obs).middleware(
-		requestID(logging(s.log, recoverPanic(s.log, securityHeaders(s.mux)))))
+		requestID(logging(s.log, recoverPanic(s.log, securityHeaders(s.authMiddleware(s.mux))))))
 }
 
 // securityHeaders sets conservative response headers on every response:

@@ -318,3 +318,48 @@ td code, .mono { font-family: var(--c-mono); font-size: 13px; }
 }
 .sidebar-foot a { color: var(--c-muted); text-decoration: none; }
 .sidebar-foot a:hover { color: var(--c-primary); text-decoration: underline; }
+
+/* ---- login ---- */
+
+.login-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.login-card { width: min(380px, calc(100vw - 32px)); }
+.login-card h1 { margin: 0; font-size: 20px; }
+
+.login-form { display: flex; flex-direction: column; gap: var(--c-3); }
+.login-form label { font-size: 13px; font-weight: 600; color: var(--c-ink-2); }
+
+.login-form input {
+  padding: var(--c-3);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--c-r-sm);
+  font: inherit;
+  font-family: var(--c-mono);
+}
+
+.login-form input:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+.login-form input[aria-invalid="true"] { border-color: var(--c-danger); }
+
+.btn-primary {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+  justify-content: center;
+}
+.btn-primary:hover { background: var(--c-primary); opacity: .9; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+.login-error { margin: 0; color: var(--c-danger); font-size: 13px; }
+.login-note  { margin: 0; color: var(--c-ok); font-size: 13px; }
+
+.topbar-spacer { flex: 1; }
+.topbar form { margin: 0; }

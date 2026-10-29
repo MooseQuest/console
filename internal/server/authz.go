@@ -33,6 +33,7 @@ var routeScopes = map[string]scopeRule{
 	"GET /static/": exempt,
 	"GET /login":   exempt,
 	"POST /login":  exempt,
+	"POST /logout": exempt,
 
 	// eval.
 	"POST /api/flags/{key}/evaluate": need(auth.Eval),
@@ -119,15 +120,26 @@ func (s *Server) authMiddleware(next *http.ServeMux) http.Handler {
 		mutating := isMutating(r.Method)
 		sr := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 
-		p, err := s.authn.Authenticate(r)
+		p, err := s.authenticate(r)
 		switch {
 		case err != nil:
 			if !errors.Is(err, auth.ErrUnauthenticated) {
 				s.log.Error("authenticator error", "request_id", RequestID(r.Context()))
 			}
 			failures[reasonUnauthenticated].Inc()
-			sr.Header().Set("WWW-Authenticate", "Bearer")
-			writeJSON(sr, http.StatusUnauthorized, errBody{Error: "unauthorized"})
+			switch {
+			case wantsHTML(r):
+				// Browser navigation: send to the login form.
+				http.Redirect(sr, r, "/login", http.StatusSeeOther)
+			case r.Header.Get("HX-Request") != "":
+				// htmx swap: have the client navigate to the login form.
+				sr.Header().Set("HX-Redirect", "/login")
+				sr.Header().Set("WWW-Authenticate", "Bearer")
+				writeJSON(sr, http.StatusUnauthorized, errBody{Error: "unauthorized"})
+			default:
+				sr.Header().Set("WWW-Authenticate", "Bearer")
+				writeJSON(sr, http.StatusUnauthorized, errBody{Error: "unauthorized"})
+			}
 			s.audit(r, pattern, "-", 0, sr.status, mutating)
 			return
 		case !known:
@@ -149,6 +161,20 @@ func (s *Server) authMiddleware(next *http.ServeMux) http.Handler {
 		next.ServeHTTP(sr, r2)
 		s.audit(r, pattern, p.Name, p.Scope, sr.status, mutating)
 	})
+}
+
+// authenticate resolves the request's principal: an Authorization header takes
+// precedence (API clients never fall back to cookies); otherwise a valid
+// session cookie is accepted. NOTE: cookie-authenticated unsafe requests are
+// not yet CSRF-protected beyond SameSite=Lax; that is #76.
+func (s *Server) authenticate(r *http.Request) (auth.Principal, error) {
+	if r.Header.Get("Authorization") != "" {
+		return s.authn.Authenticate(r)
+	}
+	if p, ok := s.sessionFromRequest(r); ok {
+		return p, nil
+	}
+	return auth.Principal{}, auth.ErrUnauthenticated
 }
 
 // isMutating reports whether m is a state-changing method.

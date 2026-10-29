@@ -14,6 +14,13 @@ import (
 type pageData struct {
 	Title string
 	Nav   string
+	// Auth is true when authentication is on, so the shell shows "Sign out".
+	Auth bool
+}
+
+// page builds the shell data for a dashboard page.
+func (s *Server) page(title, nav string) pageData {
+	return pageData{Title: title, Nav: nav, Auth: s.authn != nil}
 }
 
 // overviewData drives the Overview page: the aggregate health snapshot plus a
@@ -55,7 +62,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.render(w, "overview", "overview.html", overviewData{
-		pageData:         pageData{Title: "Overview", Nav: "overview"},
+		pageData:         s.page("Overview", "overview"),
 		Health:           health,
 		Checks:           health.Components,
 		FlagCount:        len(flags),
@@ -78,7 +85,7 @@ func (s *Server) handleFlagsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, "flags", "flags.html", flagsData{
-		pageData: pageData{Title: "Flags", Nav: "flags"},
+		pageData: s.page("Flags", "flags"),
 		Flags:    flags,
 	})
 }
@@ -134,7 +141,7 @@ func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 		views = append(views, s.componentViewFor(r, c))
 	}
 	s.render(w, "status", "status.html", statusData{
-		pageData:   pageData{Title: "Status", Nav: "status"},
+		pageData:   s.page("Status", "status"),
 		Components: views,
 	})
 }

@@ -2,8 +2,10 @@ package status
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -45,8 +47,8 @@ func (p *HTTPProvider) Check(ctx context.Context, comp core.Component) core.Chec
 		CheckedAt: time.Now().UTC(),
 	}
 
-	url := comp.Config["url"]
-	if url == "" {
+	target := comp.Config["url"]
+	if target == "" {
 		check.State = core.StateUnknown
 		check.Message = "no url configured"
 		return check
@@ -84,10 +86,10 @@ func (p *HTTPProvider) Check(ctx context.Context, comp core.Component) core.Chec
 	reqCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(reqCtx, method, url, nil)
+	req, err := http.NewRequestWithContext(reqCtx, method, target, nil)
 	if err != nil {
 		check.State = core.StateUnknown
-		check.Message = fmt.Sprintf("bad request: %v", err)
+		check.Message = fmt.Sprintf("bad request: %v", sanitizeErr(err))
 		check.CheckedAt = time.Now().UTC()
 		return check
 	}
@@ -103,7 +105,7 @@ func (p *HTTPProvider) Check(ctx context.Context, comp core.Component) core.Chec
 	check.CheckedAt = time.Now().UTC()
 	if err != nil {
 		check.State = core.StateDown
-		check.Message = fmt.Sprintf("request failed: %v", err)
+		check.Message = fmt.Sprintf("request failed: %v", sanitizeErr(err))
 		return check
 	}
 	defer resp.Body.Close()
@@ -126,4 +128,16 @@ func (p *HTTPProvider) Check(ctx context.Context, comp core.Component) core.Chec
 	}
 
 	return check
+}
+
+// sanitizeErr unwraps a *url.Error so the probed URL (which may carry userinfo
+// or secret query parameters) never reaches a stored Check.Message; only the
+// underlying cause is kept.
+func sanitizeErr(err error) error {
+	var ue *url.Error
+	for errors.As(err, &ue) {
+		err = ue.Err
+		ue = nil
+	}
+	return err
 }

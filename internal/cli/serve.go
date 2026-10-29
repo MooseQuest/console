@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"github.com/moosequest/console/internal/server"
 )
 
-func cmdServe(args []string, cfg config.Config) error {
+func (c *cli) cmdServe(args []string, cfg config.Config) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
 	addr := fs.String("addr", cfg.Addr, "HTTP listen address")
 	db := fs.String("db", cfg.DB, "SQLite path or DSN")
@@ -25,7 +25,7 @@ func cmdServe(args []string, cfg config.Config) error {
 		return err
 	}
 	cfg.Addr, cfg.DB = *addr, *db
-	cfg.Version = resolveVersion()
+	cfg.Version = c.resolveVersion()
 
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -35,7 +35,7 @@ func cmdServe(args []string, cfg config.Config) error {
 	ctx, cancel := signalContext()
 	defer cancel()
 
-	a, err := app.New(ctx, cfg)
+	a, err := app.New(ctx, cfg, c.appOpts()...)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func cmdServe(args []string, cfg config.Config) error {
 	}()
 
 	fmt.Printf("console %s listening on %s (db=%s, ai=%t)\n",
-		resolveVersion(), cfg.Addr, displayDB(cfg.DB), a.LLM != nil)
+		c.resolveVersion(), cfg.Addr, displayDB(cfg.DB), a.LLM != nil)
 	if *qr {
 		if ip, err := lanIP(); err == nil {
 			_ = showQR(os.Stdout, fmt.Sprintf("http://%s:%s", ip, addrPort(cfg.Addr)), isLoopback(cfg.Addr), addrPort(cfg.Addr))

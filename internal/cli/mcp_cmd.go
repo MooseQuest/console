@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"flag"
@@ -34,7 +34,7 @@ Example (Claude Desktop / Code MCP config):
   {"command": "console", "args": ["mcp", "-write"]} # allow writes
 `
 
-func cmdMCP(args []string, cfg config.Config) error {
+func (c *cli) cmdMCP(args []string, cfg config.Config) error {
 	fs := flag.NewFlagSet("mcp", flag.ContinueOnError)
 	write := fs.Bool("write", false, "enable mutating tools (create/toggle/delete)")
 	addr := fs.String("addr", "", "target a running console server over HTTP instead of the local store")
@@ -46,7 +46,7 @@ func cmdMCP(args []string, cfg config.Config) error {
 	ctx, cancel := signalContext()
 	defer cancel()
 
-	opts := mcp.Options{Name: "console", Version: resolveVersion(), AllowWrites: *write}
+	opts := mcp.Options{Name: "console", Version: c.resolveVersion(), AllowWrites: *write}
 
 	var backend mcp.Backend
 	if *addr != "" {
@@ -56,7 +56,7 @@ func cmdMCP(args []string, cfg config.Config) error {
 		}
 		backend = b
 	} else {
-		a, err := app.New(ctx, cfg)
+		a, err := app.New(ctx, cfg, c.appOpts()...)
 		if err != nil {
 			return err
 		}

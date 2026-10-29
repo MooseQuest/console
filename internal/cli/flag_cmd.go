@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -25,7 +25,7 @@ Usage:
   console flag eval <key> -subject <id> [-attr k=v ...]
 `
 
-func cmdFlag(args []string, cfg config.Config) error {
+func (c *cli) cmdFlag(args []string, cfg config.Config) error {
 	if len(args) == 0 {
 		fmt.Print(flagUsage)
 		return nil
@@ -34,7 +34,7 @@ func cmdFlag(args []string, cfg config.Config) error {
 
 	ctx, cancel := signalContext()
 	defer cancel()
-	a, err := app.New(ctx, cfg)
+	a, err := app.New(ctx, cfg, c.appOpts()...)
 	if err != nil {
 		return err
 	}

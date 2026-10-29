@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -160,6 +161,24 @@ func TestHealthResource(t *testing.T) {
 	// No components yet → aggregate is unknown.
 	if hv.State != "unknown" {
 		t.Errorf("empty snapshot state = %q, want unknown", hv.State)
+	}
+}
+
+func TestComponentConfigRedacted(t *testing.T) {
+	cs := newTestClient(t, true)
+	const raw = "raw-secret-value-123"
+	out := callText(t, cs, "add_component", map[string]any{
+		"key": "svc", "name": "Svc", "provider": "http",
+		"config": map[string]any{"url": "https://svc.test", "api_token": raw},
+	})
+	outs := []string{out, callText(t, cs, "list_components", nil), callText(t, cs, "get_component", map[string]any{"key": "svc"})}
+	for i, o := range outs {
+		if strings.Contains(o, raw) {
+			t.Errorf("tool output %d leaked secret: %s", i, o)
+		}
+		if !strings.Contains(o, "[set]") || !strings.Contains(o, "https://svc.test") {
+			t.Errorf("tool output %d missing placeholder/verbatim url: %s", i, o)
+		}
 	}
 }
 

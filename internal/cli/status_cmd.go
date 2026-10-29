@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -22,7 +22,7 @@ Usage:
   console status delete <key>
 `
 
-func cmdStatus(args []string, cfg config.Config) error {
+func (c *cli) cmdStatus(args []string, cfg config.Config) error {
 	if len(args) == 0 {
 		fmt.Print(statusUsage)
 		return nil
@@ -31,7 +31,7 @@ func cmdStatus(args []string, cfg config.Config) error {
 
 	ctx, cancel := signalContext()
 	defer cancel()
-	a, err := app.New(ctx, cfg)
+	a, err := app.New(ctx, cfg, c.appOpts()...)
 	if err != nil {
 		return err
 	}

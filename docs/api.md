@@ -206,6 +206,14 @@ curl -X POST localhost:8080/api/components \
 
 Get, replace, or delete a component by key (`404` if absent).
 
+Component `config` secrets are write-only. A config key is secret if its
+lowercase name contains `token`, `secret`, `key`, `password`, `credential`,
+`auth` or `webhook`; every read (API, dashboard, MCP, logs) renders such values
+as the literal `"[set]"`. Other keys are returned verbatim. On `PUT`, a secret
+key whose value is `"[set]"`, or that is omitted, keeps its stored value, so a
+GET-then-PUT round trip does not destroy a secret; any other value replaces it.
+Status checks still use the real stored values.
+
 ### `POST /api/components/{key}/check`
 
 Run a check now and return the resulting `core.Check`.

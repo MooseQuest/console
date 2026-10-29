@@ -237,6 +237,58 @@ func TestToggleFlagPartial(t *testing.T) {
 	}
 }
 
+func TestComponentConfigWriteOnly(t *testing.T) {
+	srv, a := newTestServer(t)
+	const raw = "raw-secret-value-123"
+	ctx := context.Background()
+	comp := core.Component{
+		Key: "svc", Name: "Svc", Provider: "http",
+		Config: map[string]string{"url": "https://svc.test/health", "api_token": raw},
+	}
+	resp := do(t, http.MethodPost, srv.URL+"/api/components", comp)
+	if body := readAll(t, resp); strings.Contains(body, raw) {
+		t.Fatalf("create response leaked secret: %s", body)
+	}
+
+	// GET, list, status page, and overview never contain the raw value.
+	for _, path := range []string{"/api/components/svc", "/api/components", "/status", "/"} {
+		if body := readAll(t, do(t, http.MethodGet, srv.URL+path, nil)); strings.Contains(body, raw) {
+			t.Fatalf("GET %s leaked secret", path)
+		}
+	}
+	var got core.Component
+	decodeBody(t, do(t, http.MethodGet, srv.URL+"/api/components/svc", nil), &got)
+	if got.Config["api_token"] != core.SecretPlaceholder || got.Config["url"] != "https://svc.test/health" {
+		t.Fatalf("config = %v", got.Config)
+	}
+
+	// Round trip unchanged (placeholder) keeps the stored secret.
+	resp = do(t, http.MethodPut, srv.URL+"/api/components/svc", got)
+	if body := readAll(t, resp); strings.Contains(body, raw) {
+		t.Fatalf("update response leaked secret: %s", body)
+	}
+	stored, err := a.Status.GetComponent(ctx, "svc")
+	if err != nil || stored.Config["api_token"] != raw {
+		t.Fatalf("stored after round trip = %v, %v", stored.Config, err)
+	}
+
+	// Omitting the key also keeps it.
+	got.Config = map[string]string{"url": "https://svc.test/health2"}
+	readAll(t, do(t, http.MethodPut, srv.URL+"/api/components/svc", got))
+	stored, _ = a.Status.GetComponent(ctx, "svc")
+	if stored.Config["api_token"] != raw || stored.Config["url"] != "https://svc.test/health2" {
+		t.Fatalf("stored after omit = %v", stored.Config)
+	}
+
+	// A new value replaces it.
+	got.Config = map[string]string{"api_token": "new-value"}
+	readAll(t, do(t, http.MethodPut, srv.URL+"/api/components/svc", got))
+	stored, _ = a.Status.GetComponent(ctx, "svc")
+	if stored.Config["api_token"] != "new-value" {
+		t.Fatalf("stored after replace = %v", stored.Config)
+	}
+}
+
 func readAll(t *testing.T, resp *http.Response) string {
 	t.Helper()
 	defer resp.Body.Close()

@@ -186,7 +186,7 @@ func registerReadTools(s *mcp.Server, b Backend) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return jsonResult(cs)
+		return jsonResult(core.RedactComponents(cs))
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -198,7 +198,7 @@ func registerReadTools(s *mcp.Server, b Backend) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return jsonResult(c)
+		return jsonResult(c.Redacted())
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -298,7 +298,7 @@ func registerWriteTools(s *mcp.Server, b Backend) {
 		if err := b.CreateComponent(ctx, c); err != nil {
 			return nil, nil, err
 		}
-		return jsonResult(c)
+		return jsonResult(c.Redacted())
 	})
 
 	mcp.AddTool(s, &mcp.Tool{

@@ -74,8 +74,15 @@ func (e *Engine) ListComponents(ctx context.Context) ([]core.Component, error) {
 	return e.comps.ListComponents(ctx)
 }
 
-// UpdateComponent persists changes to an existing component.
+// UpdateComponent persists changes to an existing component. Secret config
+// values are write-only: an omitted secret key, or one set to
+// core.SecretPlaceholder, keeps its stored value (see core.MergeSecretConfig).
 func (e *Engine) UpdateComponent(ctx context.Context, c core.Component) error {
+	stored, err := e.comps.GetComponent(ctx, c.Key)
+	if err != nil {
+		return err
+	}
+	c.Config = core.MergeSecretConfig(stored.Config, c.Config)
 	return e.comps.UpdateComponent(ctx, c)
 }
 

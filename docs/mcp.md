@@ -58,11 +58,31 @@ useful for a shared or remote instance:
 console mcp -addr 127.0.0.1:8080
 ```
 
-> **Auth.** Console has no built-in authentication. In `-addr` mode point at a
-> loopback address or an authenticating proxy; see
-> [security/runtime-hardening.md](security/runtime-hardening.md). In the default
-> in-process mode the trust boundary is simply the local user who launched the
-> subprocess.
+### Authenticating to a server
+
+If the server enforces auth (see [design/auth.md](design/auth.md)), give
+`console mcp -addr` a bearer token via the `CONSOLE_TOKEN` environment variable
+or `-token-file` (a file holding the token; the trailing newline is trimmed). If
+both are set, the file wins. There is deliberately no `-token` flag, since it
+would leak through `ps` and shell history.
+
+```bash
+CONSOLE_TOKEN=$(cat ~/.console-read-token) console mcp -addr https://console.example.com
+console mcp -addr https://console.example.com -write -token-file ~/.console-write-token
+```
+
+- Read-only mode needs a token with the `read` scope; `-write` needs `write`.
+  The server's scope check is the authority. A 401/403 surfaces as a tool error
+  naming the scope needed; the token is never echoed.
+- The client refuses to send a token over plain `http://` to a non-loopback
+  host. Use `https://`, or pass `-insecure-token` to override (not recommended).
+  Loopback (`localhost`, `127.0.0.0/8`, `::1`) is always allowed.
+- When a token is set, only `http`/`https` addresses are accepted, and redirects
+  to a different scheme, host or port are refused so the token is never
+  forwarded cross-origin.
+
+> In the default in-process mode there is no HTTP and no token: the trust
+> boundary is the local user who launched the subprocess.
 
 ## Tools
 

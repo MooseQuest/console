@@ -19,6 +19,16 @@ const (
 	AuthDisabled = "disabled"
 )
 
+// Session cookie Secure-attribute modes accepted by Config.CookieSecure
+// (CONSOLE_COOKIE_SECURE).
+const (
+	// CookieSecureAuto sets Secure when the request is TLS or carries
+	// X-Forwarded-Proto: https.
+	CookieSecureAuto = "auto"
+	// CookieSecureAlways always sets Secure.
+	CookieSecureAlways = "always"
+)
+
 // Tokens holds the configured API tokens per scope. The values are secrets:
 // Tokens implements fmt.Stringer, fmt.GoStringer, and slog.LogValuer so that
 // printing or logging a Config (or a Tokens) shows only counts, never values.
@@ -102,6 +112,10 @@ func (c *Config) loadAuth() {
 	if c.AuthMode == "" {
 		c.AuthMode = AuthAuto
 	}
+	c.CookieSecure = strings.ToLower(strings.TrimSpace(os.Getenv("CONSOLE_COOKIE_SECURE")))
+	if c.CookieSecure == "" {
+		c.CookieSecure = CookieSecureAuto
+	}
 	var errs []error
 	for _, s := range []struct {
 		env string
@@ -128,6 +142,11 @@ func (c Config) validateAuth() error {
 	case "", AuthAuto, AuthDisabled:
 	default:
 		return fmt.Errorf("invalid CONSOLE_AUTH %q: allowed values are %q or %q", c.AuthMode, AuthAuto, AuthDisabled)
+	}
+	switch c.CookieSecure {
+	case "", CookieSecureAuto, CookieSecureAlways:
+	default:
+		return fmt.Errorf("invalid CONSOLE_COOKIE_SECURE %q: allowed values are %q or %q", c.CookieSecure, CookieSecureAuto, CookieSecureAlways)
 	}
 	return c.authErr
 }

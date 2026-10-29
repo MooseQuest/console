@@ -25,7 +25,11 @@
       </footer>
     </aside>
     <div class="main">
-      <header class="topbar"><h1>{{.Title}}</h1></header>
+      <header class="topbar">
+        <h1>{{.Title}}</h1>
+        {{if .Auth}}<span class="topbar-spacer"></span>
+        <form method="post" action="/logout"><button type="submit" class="btn">Sign out</button></form>{{end}}
+      </header>
       <main class="content">
         {{template "content" .}}
       </main>

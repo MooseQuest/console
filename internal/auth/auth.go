@@ -134,7 +134,19 @@ func (s *Static) Authenticate(r *http.Request) (Principal, error) {
 	if tok == "" {
 		return Principal{}, ErrUnauthenticated
 	}
-	d := sha256.Sum256([]byte(tok))
+	return s.AuthenticateDigest(sha256.Sum256([]byte(tok)))
+}
+
+// DigestAuthenticator re-resolves a principal from a token digest alone. The
+// dashboard session store keeps only the digest of the token a user logged in
+// with and uses this to confirm on every request that the token is still
+// configured.
+type DigestAuthenticator interface {
+	AuthenticateDigest(d [sha256.Size]byte) (Principal, error)
+}
+
+// AuthenticateDigest matches d against the configured digests in constant time.
+func (s *Static) AuthenticateDigest(d [sha256.Size]byte) (Principal, error) {
 	var found Principal
 	ok := false
 	// Scan every entry so timing does not reveal which one matched.

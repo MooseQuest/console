@@ -32,6 +32,9 @@ type Server struct {
 	// authn authenticates requests; nil disables authorization entirely (the
 	// middleware is a pass-through). See WithAuthenticator.
 	authn auth.Authenticator
+	// sessions and throttle back dashboard login (see login.go).
+	sessions *auth.SessionStore
+	throttle *auth.Throttle
 	// patterns records every pattern registered on the mux, so tests can
 	// assert each has an entry in routeScopes.
 	patterns []string
@@ -45,6 +48,9 @@ func New(a *app.App) *Server {
 		mux:  http.NewServeMux(),
 		tmpl: parseTemplates(),
 		log:  slog.Default(),
+
+		sessions: auth.NewSessionStore(nil),
+		throttle: auth.NewThrottle(nil),
 	}
 	s.Routes()
 	return s
@@ -80,6 +86,11 @@ func (s *Server) Routes() {
 	s.handleFunc("PUT /api/components/{key}", s.handleUpdateComponent)
 	s.handleFunc("DELETE /api/components/{key}", s.handleDeleteComponent)
 	s.handleFunc("POST /api/components/{key}/check", s.handleCheckComponent)
+
+	// Dashboard login/logout (unauthenticated; see login.go).
+	s.handleFunc("GET /login", s.handleLoginPage)
+	s.handleFunc("POST /login", s.handleLogin)
+	s.handleFunc("POST /logout", s.handleLogout)
 
 	// Dashboard UI.
 	s.handleFunc("GET /{$}", s.handleOverview)

@@ -1,0 +1,31 @@
+{{define "login"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Console — {{.Title}}</title>
+  <link rel="stylesheet" href="/static/console.css">
+</head>
+<body class="login-page">
+  <main class="login-card card">
+    <div class="brand"><span class="mark"></span> Console</div>
+    <h1>{{.Title}}</h1>
+
+    {{if .SignedOut}}<p class="login-note" role="status">You have been signed out.</p>{{end}}
+    {{if .Throttled}}
+    <p class="login-error" role="alert">Too many failed attempts. Try again in {{.RetryAfter}} seconds.</p>
+    {{else if .Error}}
+    <p class="login-error" id="login-error" role="alert">That token was not accepted.</p>
+    {{end}}
+
+    <form method="post" action="/login" class="login-form">
+      <label for="token">API token</label>
+      <input id="token" name="token" type="password" autocomplete="off" autocapitalize="off"
+             spellcheck="false" required autofocus{{if .Error}} aria-invalid="true" aria-describedby="login-error"{{end}}>
+      <button type="submit" class="btn btn-primary"{{if .Throttled}} disabled{{end}}>Sign in</button>
+    </form>
+    <p class="muted">Use one of the tokens configured for this Console instance.</p>
+  </main>
+</body>
+</html>{{end}}

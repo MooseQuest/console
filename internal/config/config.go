@@ -55,6 +55,9 @@ type Config struct {
 	// Tokens are the static API tokens (CONSOLE_{ADMIN,WRITE,READ,EVAL}_TOKENS
 	// and _FILE variants). Secret; renders as counts only.
 	Tokens Tokens
+	// CookieSecure is CONSOLE_COOKIE_SECURE: "auto" (default) or "always".
+	// Check with Validate.
+	CookieSecure string
 
 	authErr error // token-source error from FromEnv, reported by Validate
 }
@@ -86,6 +89,8 @@ func Default() Config {
 		Metrics:   true,
 		LogFormat: LogText,
 		AuthMode:  AuthAuto,
+
+		CookieSecure: CookieSecureAuto,
 	}
 }
 
@@ -102,6 +107,7 @@ func Default() Config {
 //	CONSOLE_METRICS_ADDR   serve /metrics on this separate address (default: main listener)
 //	CONSOLE_LOG_FORMAT     "text" (default) or "json"; anything else fails Validate
 //	CONSOLE_AUTH           "auto" (default) or "disabled"; anything else fails Validate
+//	CONSOLE_COOKIE_SECURE  session cookie Secure flag: "auto" (default) or "always"
 //	CONSOLE_{ADMIN,WRITE,READ,EVAL}_TOKENS  comma-separated API tokens per scope
 //	CONSOLE_{...}_TOKENS_FILE  same, one token per line (blank lines and # comments
 //	                       ignored); setting both NAME and NAME_FILE is an error

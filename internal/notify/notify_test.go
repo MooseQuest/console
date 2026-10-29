@@ -1,13 +1,53 @@
 package notify
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/moosequest/console/internal/core"
+	"github.com/moosequest/console/internal/obs"
 )
+
+func TestDispatcher_RecordsOutcomes(t *testing.T) {
+	good := &fakeNotifier{name: "slack"}
+	bad := &fakeNotifier{name: "hook", err: errors.New("boom https://example.com/secret-webhook")}
+	d := NewDispatcher(bad, good)
+	d.logf = func(string, ...any) {}
+	mem := obs.NewMemory()
+	d.SetRecorder(mem)
+
+	d.Emit(core.Event{})
+
+	if good.count() != 1 {
+		t.Fatal("failing notifier blocked the others")
+	}
+	var buf bytes.Buffer
+	if err := mem.WritePrometheus(&buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{
+		`console_notify_sent_total{outcome="ok",sink="slack"} 1`,
+		`console_notify_sent_total{outcome="error",sink="hook"} 1`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "example.com") || strings.Contains(out, "secret") {
+		t.Errorf("metrics leaked sensitive data:\n%s", out)
+	}
+}
+
+func TestDispatcher_NilRecorderIsNop(t *testing.T) {
+	d := NewDispatcher(&fakeNotifier{name: "a"})
+	d.SetRecorder(nil)
+	d.Emit(core.Event{})
+}
 
 // fakeNotifier records the events it receives and can be made to fail.
 type fakeNotifier struct {

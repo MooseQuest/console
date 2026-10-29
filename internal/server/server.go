@@ -77,11 +77,20 @@ func (s *Server) Routes() {
 	// Static assets (CSS, vendored JS).
 	static := http.FileServerFS(web.Static)
 	s.mux.Handle("GET /static/", static)
+
+	// Prometheus metrics on the main listener, unless metrics are off (404) or
+	// a dedicated listener is configured (CONSOLE_METRICS_ADDR).
+	if s.app.Config.MetricsAddr == "" {
+		if h := metricsHandler(s.app.Obs); h != nil {
+			s.mux.Handle("GET /metrics", h)
+		}
+	}
 }
 
-// Handler returns the mux wrapped with logging + panic-recovery middleware.
+// Handler returns the mux wrapped with metrics (outermost), logging and
+// panic-recovery middleware.
 func (s *Server) Handler() http.Handler {
-	return logging(recoverPanic(securityHeaders(s.mux)))
+	return newHTTPMetrics(s.app.Obs).middleware(logging(recoverPanic(securityHeaders(s.mux))))
 }
 
 // securityHeaders sets conservative response headers on every response:

@@ -40,6 +40,9 @@ type Config struct {
 	// Metrics enables in-process metrics collection (internal/obs). When false
 	// the App uses the allocation-free no-op Recorder. Defaults to true.
 	Metrics bool
+	// MetricsAddr, when set, serves /metrics on a separate listener at this
+	// address instead of the main one (CONSOLE_METRICS_ADDR).
+	MetricsAddr string
 }
 
 // Default returns the baseline configuration before env/flag overrides.
@@ -62,6 +65,7 @@ func Default() Config {
 //	CONSOLE_STATUS_PLUGINS comma/space-separated status-provider plugin paths
 //	CONSOLE_LLM_PLUGIN     path to an out-of-process LLM provider plugin
 //	CONSOLE_METRICS        "off"/"false"/"0"/"no" disables metrics (default on)
+//	CONSOLE_METRICS_ADDR   serve /metrics on this separate address (default: main listener)
 //
 // Provider-specific variables (e.g. ANTHROPIC_API_KEY, CLOUDFLARE_API_TOKEN,
 // CONSOLE_SLACK_WEBHOOK_URL, CONSOLE_MODEL) are read by the relevant plugin,
@@ -78,6 +82,7 @@ func FromEnv() Config {
 	c.NotifyPlugins = splitList(os.Getenv("CONSOLE_NOTIFY_PLUGINS"))
 	c.StatusPlugins = splitList(os.Getenv("CONSOLE_STATUS_PLUGINS"))
 	c.LLMPlugin = os.Getenv("CONSOLE_LLM_PLUGIN")
+	c.MetricsAddr = strings.TrimSpace(os.Getenv("CONSOLE_METRICS_ADDR"))
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("CONSOLE_METRICS"))) {
 	case "off", "false", "0", "no":
 		c.Metrics = false

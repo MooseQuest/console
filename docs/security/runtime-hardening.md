@@ -263,6 +263,29 @@ hosts prefer an SSH tunnel to the loopback address over the override.
 
 ---
 
+## 8. The `/metrics` endpoint
+
+`/metrics` serves Prometheus-format metrics (see [../observability.md](../observability.md)).
+
+- **Unauthenticated while auth is off.** Like the rest of the API, it has no
+  access control until built-in auth is enabled. It is served on the main
+  listener, so it inherits that listener's bind address (loopback,
+  `127.0.0.1:8080`, by default).
+- **With auth enabled it requires the `read` scope**
+  ([../design/auth.md](../design/auth.md) section 3.4). Configure Prometheus with
+  an `authorization` bearer token; see the scrape config in the observability doc.
+- **Content.** Metrics contain no flag keys, subject keys, secrets, or component
+  `config` values. They do reveal route names, provider names, traffic volume,
+  and the Console version, which is reconnaissance value for an attacker.
+- **Behind a proxy, block it.** If a reverse proxy exposes Console, deny
+  `/metrics` at the proxy (or allow only your Prometheus host).
+- **Or use a separate address.** `CONSOLE_METRICS_ADDR=127.0.0.1:9091` moves
+  metrics off the main listener. A separate address must be loopback or, once
+  auth ships, authenticated; there is no public-metrics escape hatch.
+- **Disable.** `CONSOLE_METRICS=off` removes the endpoint entirely.
+
+---
+
 ## Summary: current state and roadmap
 
 | Issue | Severity | Status |
@@ -274,6 +297,7 @@ hosts prefer an SSH tunnel to the loopback address over the override.
 | Secrets leaking into logs via URL error messages | Medium | ✅ Credential redaction done (v0.2.1) |
 | Unbounded LLM reads / no server timeouts / RunAll fan-out | Medium | ✅ All three bounded (v0.2.1) |
 | Default bind to all interfaces | High | ✅ Changed to loopback by default (v0.2.1) |
+| `/metrics` exposure | Medium | Unauthenticated while auth is off (loopback default); requires `read` once auth ships; block at proxy or use `CONSOLE_METRICS_ADDR` |
 | pprof exposure | Medium | ✅ Opt-in, separate loopback-only listener (override required for remote) |
 | Security headers | Low | ✅ Restrictive headers + CSP middleware added (v0.2.1) |
 | htmx from CDN without SRI | Low | 🔜 Vendor + SRI; drop the CDN CSP exception |

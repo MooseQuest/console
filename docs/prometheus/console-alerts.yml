@@ -1,0 +1,47 @@
+# Console alert rules. Thresholds are tunable defaults, not SLOs; adjust them
+# to your traffic. Validate with: promtool check rules docs/prometheus/console-alerts.yml
+# See docs/observability.md.
+groups:
+  - name: console
+    rules:
+      - alert: ConsoleHighLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (rate(console_http_request_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Console p99 request latency above 1s"
+          description: "p99 HTTP latency has been {{ $value | humanizeDuration }} for 10 minutes."
+
+      - alert: ConsoleHigh5xxRate
+        expr: |
+          sum(rate(console_http_requests_total{code=~"5.."}[5m]))
+            / sum(rate(console_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Console 5xx ratio above 5%"
+          description: "{{ $value | humanizePercentage }} of requests are failing with 5xx."
+
+      - alert: ConsoleStatusProviderFailing
+        expr: |
+          sum by (provider) (rate(console_check_results_total{state="down"}[10m]))
+            / sum by (provider) (rate(console_check_results_total[10m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Status provider {{ $labels.provider }} mostly reporting down"
+          description: "Over half of {{ $labels.provider }} checks resolved to down for 10 minutes."
+
+      - alert: ConsoleStoreErrors
+        expr: sum by (op) (rate(console_store_errors_total[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Console store operation {{ $labels.op }} is erroring"
+          description: "Store op {{ $labels.op }} has returned errors continuously for 5 minutes."

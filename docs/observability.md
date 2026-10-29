@@ -7,11 +7,19 @@ process unless you scrape it or configure an exporter.
 
 ## Security warning: `/metrics` exposure
 
-**`/metrics` is unauthenticated while built-in auth is off** (as with the rest
-of the API today), and it follows the main listener's bind address, which is
-loopback (`127.0.0.1:8080`) by default. Metrics contain no flag keys, subject
-keys, or config values, but they do reveal route names, component provider
-names, traffic levels, and the Console version.
+**With auth enabled, `/metrics` requires a `read` token.** It is
+unauthenticated only when no token is configured, which Console allows only on
+a loopback bind (`127.0.0.1:8080` by default) or with the explicit opt-out
+described in [runtime hardening](security/runtime-hardening.md).
+Upgrading from a release that predates built-in auth: once you set a token, your
+Prometheus scrape starts getting `401` until you add an `authorization`
+setting (below). Metrics contain no flag keys, subject keys, or config values,
+but they do reveal route names, component provider names, traffic levels, and
+the Console version.
+
+Liveness probes should use `GET /healthz` (unauthenticated, returns `ok`) on
+the main listener, not `/metrics` or `/api/health`. If `CONSOLE_METRICS_ADDR` is
+set, `/metrics` is served only there, and `/healthz` stays on the main listener.
 
 - Do not expose `/metrics` to untrusted networks. If Console sits behind a
   reverse proxy, **block `/metrics` at the proxy** (or only allow your
@@ -24,8 +32,9 @@ names, traffic levels, and the Console version.
   token). Prometheus must present a bearer token, see the scrape config below.
   A loopback metrics address may run unauthenticated only when auth is
   disabled; a non-loopback `CONSOLE_METRICS_ADDR` makes `serve` refuse to start
-  unless auth is enabled (or `CONSOLE_AUTH=disabled` is set explicitly). The
-  check is skipped when `CONSOLE_METRICS=off`, since no listener starts.
+  unless auth is enabled (or the explicit opt-out in runtime hardening is
+  set). The check is skipped when `CONSOLE_METRICS=off`, since no listener
+  starts.
 
 See also [security/runtime-hardening.md](security/runtime-hardening.md).
 

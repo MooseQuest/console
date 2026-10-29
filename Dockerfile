@@ -38,8 +38,13 @@ COPY --from=build /out/console /console
 COPY --from=build --chown=65532:65532 /data /data
 
 # In a container the port must bind all interfaces to be reachable via -p; the
-# container's network namespace is the trust boundary. Console still ships no
-# auth, so do not publish this port to an untrusted network without a proxy.
+# container's network namespace is the trust boundary. Because that bind is not
+# loopback, Console refuses to start unless an API token is configured: pass
+# CONSOLE_ADMIN_TOKENS (or CONSOLE_ADMIN_TOKENS_FILE). Generate one with
+#   docker run --rm ghcr.io/moosequest/console auth token
+# Probe liveness with GET /healthz (unauthenticated). There is no HEALTHCHECK
+# here: the distroless base has no shell or curl and the binary has no probe
+# subcommand, so use an external probe (see docs/docker.md).
 # State lives under /data (declared a volume for persistence).
 ENV CONSOLE_ADDR=0.0.0.0:8080 \
     CONSOLE_DB=/data/console.db

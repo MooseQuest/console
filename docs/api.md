@@ -6,6 +6,7 @@ today — there is **no native client SDK yet** (it's on the roadmap; integrate 
 HTTP for now).
 
 - [Conventions](#conventions)
+- [Authentication and scopes](#authentication-and-scopes)
 - [Errors](#errors)
 - [Health](#health)
 - [Flags](#flags)
@@ -22,31 +23,63 @@ HTTP for now).
 
 ### Security
 
-- **No API auth yet.** There is no token or session check — anyone who can reach
-  the listen address can read and write. Keep it bound to loopback
-  (`CONSOLE_ADDR` default `127.0.0.1:8080`) and front it with your own auth if you
-  expose it.
+- **Authenticated by default once a token is configured.** See
+  [Authentication and scopes](#authentication-and-scopes). `console serve`
+  refuses to bind a non-loopback address without a token.
 - **Request bodies are capped at 1 MiB.** An over-limit body is rejected rather
   than buffered.
 - The server sets security headers on every response: `X-Content-Type-Options:
   nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and a
   restrictive Content-Security-Policy.
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/health` | Aggregate health snapshot |
-| `GET` | `/api/flags` | List flags |
-| `POST` | `/api/flags` | Create a flag |
-| `GET` | `/api/flags/{key}` | Get a flag |
-| `PUT` | `/api/flags/{key}` | Update a flag |
-| `DELETE` | `/api/flags/{key}` | Delete a flag |
-| `POST` | `/api/flags/{key}/evaluate` | Evaluate a flag for a subject |
-| `GET` | `/api/components` | List components |
-| `POST` | `/api/components` | Create a component |
-| `GET` | `/api/components/{key}` | Get a component |
-| `PUT` | `/api/components/{key}` | Update a component |
-| `DELETE` | `/api/components/{key}` | Delete a component |
-| `POST` | `/api/components/{key}/check` | Run a check now |
+| Method | Path | Scope | Description |
+|---|---|---|---|
+| `GET` | `/healthz` | none | Liveness probe (returns `ok`) |
+| `GET` | `/api/health` | `read` | Aggregate health snapshot |
+| `GET` | `/api/flags` | `read` | List flags |
+| `POST` | `/api/flags` | `write` | Create a flag |
+| `GET` | `/api/flags/{key}` | `read` | Get a flag |
+| `PUT` | `/api/flags/{key}` | `write` | Update a flag |
+| `DELETE` | `/api/flags/{key}` | `write` | Delete a flag |
+| `POST` | `/api/flags/{key}/evaluate` | `eval` | Evaluate a flag for a subject |
+| `GET` | `/api/components` | `read` | List components |
+| `POST` | `/api/components` | `write` | Create a component |
+| `GET` | `/api/components/{key}` | `read` | Get a component |
+| `PUT` | `/api/components/{key}` | `write` | Update a component |
+| `DELETE` | `/api/components/{key}` | `write` | Delete a component |
+| `POST` | `/api/components/{key}/check` | `write` | Run a check now |
+
+## Authentication and scopes
+
+When at least one token is configured (`CONSOLE_ADMIN_TOKENS`,
+`CONSOLE_WRITE_TOKENS`, `CONSOLE_READ_TOKENS`, `CONSOLE_EVAL_TOKENS`, or the
+`_FILE` variants), every endpoint except `/healthz` requires a bearer token:
+
+```bash
+export CONSOLE_TOKEN=$(console auth token)   # generate once; configure it on the server
+curl -H "Authorization: Bearer $CONSOLE_TOKEN" localhost:8080/api/flags
+```
+
+Scopes are hierarchical, `admin` > `write` > `read` > `eval`: a token can call
+any endpoint that needs its scope or a lower one. The table above lists the
+scope each endpoint needs. Use an `eval` token in application code (it can only
+evaluate flags), a `read` token for dashboards, monitors and Prometheus, and a
+`write` token for automation that changes state. The dashboard routes (`/`,
+`/flags`, `/status`) need `read`, and its toggle and check actions need `write`.
+
+- `GET /healthz` is the only unauthenticated API route. `GET /api/health` now
+  needs `read`; point probes at `/healthz`.
+- `GET /metrics` needs `read` (see [observability](observability.md)).
+- Browsers sign in at `/login` with a token and get a session cookie; that path
+  is for the dashboard. API clients should send the `Authorization` header,
+  which is never combined with the cookie and needs no CSRF token.
+- With no token configured, Console runs open, but only on a loopback bind.
+
+The `curl` examples in the rest of this page omit the header for brevity; add
+`-H "Authorization: Bearer $CONSOLE_TOKEN"` when auth is enabled.
+
+See [runtime hardening](security/runtime-hardening.md) for rotation, the
+reverse-proxy and login-throttle caveats, and the `CONSOLE_AUTH` setting.
 
 ## Errors
 
@@ -55,6 +88,9 @@ Errors return a JSON body `{"error": "..."}` with one of these status codes:
 | Status | When |
 |---|---|
 | `400 Bad Request` | malformed JSON body |
+| `401 Unauthorized` | missing or invalid token (`WWW-Authenticate: Bearer`) |
+| `403 Forbidden` | valid token, insufficient scope (or a failed CSRF check) |
+| `429 Too Many Requests` | login throttled (`Retry-After`), `/login` only |
 | `404 Not Found` | the addressed key doesn't exist |
 | `409 Conflict` | creating a key that already exists |
 | `500 Internal Server Error` | unexpected backend failure |
@@ -65,13 +101,23 @@ Errors return a JSON body `{"error": "..."}` with one of these status codes:
 
 ## Health
 
+### `GET /healthz`
+
+Unauthenticated liveness probe: `200` with body `ok` when the process is
+serving. It does not touch the store or run checks. Use it for Docker,
+Kubernetes and load-balancer probes and uptime monitors.
+
+```bash
+curl localhost:8080/healthz
+```
+
 ### `GET /api/health`
 
-Returns the aggregate snapshot — the latest check per component rolled up into
+Requires the `read` scope. Returns the aggregate snapshot — the latest check per component rolled up into
 one overall state (worst-wins; `unknown` never masks a real `down`).
 
 ```bash
-curl localhost:8080/api/health
+curl -H "Authorization: Bearer $CONSOLE_TOKEN" localhost:8080/api/health
 ```
 
 ```jsonc
@@ -247,7 +293,10 @@ for flag evaluation:
 async function evaluate(flagKey, subject, base = "http://localhost:8080") {
   const res = await fetch(`${base}/api/flags/${flagKey}/evaluate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.CONSOLE_EVAL_TOKEN}`, // an eval-scope token
+    },
     body: JSON.stringify(subject), // { key, attributes }
   });
   if (!res.ok) throw new Error(`evaluate ${flagKey}: ${res.status}`);

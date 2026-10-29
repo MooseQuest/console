@@ -3,7 +3,7 @@
 This document covers the security properties of a running Console instance:
 the HTTP API and dashboard, secrets handling, network egress, CSRF, and
 resource limits. It states what is done today and what is planned, in
-priority order.
+priority order. Authentication is covered first (§1).
 
 Related documents:
 - [Plugin trust & isolation](plugin-trust.md) — the plugin subprocess threat
@@ -13,45 +13,124 @@ Related documents:
 
 ---
 
-## 1. Authentication gap — the #1 priority
+## 1. Authentication
 
-**Console has no built-in API authentication or authorization.** Every HTTP
-endpoint — flag reads and writes, component reads and writes, check triggers,
-the dashboard — is accessible to any HTTP client that can reach the server.
-The component `config` map (which holds plaintext API tokens for status
-providers) is returned verbatim by the API.
+Console has built-in authentication. When at least one API token is configured,
+every route except the exempt ones below requires a credential with a
+sufficient scope. Without any token, Console runs open **only on a loopback
+bind**; it refuses to start on any other address (see
+[Startup refusal](#startup-refusal)).
 
-This is the most critical open risk in the current codebase.
+### Tokens and scopes
 
-### What we have done to reduce exposure (✅ v0.2.1)
+Tokens are static bearer secrets configured per scope through the environment:
 
-The default bind address was changed from `0.0.0.0` to `127.0.0.1`
-(loopback, the default for `CONSOLE_ADDR`: `127.0.0.1:8080`). A default
-`./console serve` is no longer reachable from the network without explicit
-configuration. Operators who need network access must set `CONSOLE_ADDR` to
-the desired address and understand what they are exposing.
+| Variable | Scope |
+|---|---|
+| `CONSOLE_ADMIN_TOKENS` | `admin` |
+| `CONSOLE_WRITE_TOKENS` | `write` |
+| `CONSOLE_READ_TOKENS` | `read` |
+| `CONSOLE_EVAL_TOKENS` | `eval` |
 
-### What you must do until auth lands (operator requirement)
+Each accepts a comma-separated list. Every variable also has a `_FILE` form
+(for example `CONSOLE_ADMIN_TOKENS_FILE`): one token per line, blank lines and
+lines starting with `#` ignored. Setting both `NAME` and `NAME_FILE` is a
+startup error. Prefer the `_FILE` form (Docker/Kubernetes secrets) so tokens
+stay out of process listings and `docker inspect`.
 
-**Do not expose Console directly on a network interface without an
-authenticating layer in front of it.** Keep it on `127.0.0.1` (the default)
-and reach it locally or via an SSH tunnel, place it behind a reverse proxy
-(nginx, Caddy, Traefik) that enforces authentication — HTTP Basic Auth with
-TLS, OAuth2 via a sidecar, or mTLS client certificates — or run it inside a
-private network segment (VPC, internal Kubernetes namespace, Tailscale) where
-only trusted principals can reach the port.
+Scopes are hierarchical: `admin` includes `write`, which includes `read`, which
+includes `eval`. Generate a token with `console auth token` (a `csk_` prefix plus
+256 bits of randomness; nothing is stored). Clients send
+`Authorization: Bearer <token>`. Tokens are compared in constant time and are
+never logged; the audit log identifies a caller by scope and a short digest
+label only.
 
-If Console is bound to a non-loopback address with no authenticating proxy,
-credentials stored in component `config` and all flag and component state are
-readable and writable by anyone with network access to that port. There is no
-other technical control that compensates for this today.
+| Scope | Allows |
+|---|---|
+| `eval` | `POST /api/flags/{key}/evaluate` only |
+| `read` | everything read-only: `GET /api/*`, the dashboard, `/metrics` |
+| `write` | create, update, delete, toggle flags and components; trigger checks |
+| `admin` | everything `write` does (reserved for future admin operations) |
 
-### Planned: API and dashboard authentication — 🔜
+The authoritative route-to-scope table is `routeScopes` in
+`internal/server/authz.go`; a test fails the build if a registered route has no
+entry. Exempt (no credential): `GET /healthz`, `GET /static/`, and the
+`/login` and `/logout` routes. A missing or invalid credential gets `401` with
+`WWW-Authenticate: Bearer`; a valid token with too low a scope gets `403`.
 
-The roadmap item for built-in auth will add session-based authentication for
-the dashboard and API key or token authentication for the JSON API. The design
-is not yet started. Until it ships, the reverse-proxy pattern above is the
-only supported hardening posture.
+### Rotation
+
+Tokens are read at startup, so rotating means editing the configuration and
+restarting. To rotate without downtime for clients, list the old and new token
+together (`CONSOLE_READ_TOKENS=old,new`), restart, move clients to the new
+token, then remove the old one and restart again. Removing a token also ends any
+dashboard session that logged in with it: sessions are re-checked against the
+configured tokens on every request.
+
+### Startup refusal
+
+`console serve` exits non-zero before listening if `CONSOLE_ADDR` is not
+loopback (this includes `:8080`, `0.0.0.0`, and `[::]`) and no token is
+configured. The same rule applies to a non-loopback `CONSOLE_METRICS_ADDR` (unless
+`CONSOLE_METRICS=off`). The Docker image binds `0.0.0.0:8080`, so a container
+needs a token to start.
+
+Loopback is judged from the configured address string: an IP in `127.0.0.0/8`
+or `::1`, or the literal host name `localhost`. The name `localhost` is trusted
+as written and is not resolved, so a hosts file or resolver that maps it
+elsewhere would defeat the check. Use `127.0.0.1` if that matters to you.
+
+### Escape hatch: `CONSOLE_AUTH=disabled`
+
+If Console sits behind your own authenticating proxy (OAuth2 proxy, mTLS,
+Tailscale ACLs) and you do not want a second credential, set
+`CONSOLE_AUTH=disabled`. This turns authentication off even if tokens are set,
+permits non-loopback binds, and logs a warning on every startup. Only do this
+when nothing but the authenticating proxy can reach the port; Console then has
+no access control of its own. It is deliberately absent from every quickstart
+and compose file. Any other value of `CONSOLE_AUTH` besides `auto` (the
+default) is a startup error.
+
+### Dashboard sessions, CSRF and login throttling
+
+The dashboard signs in with a token at `/login`. The server keeps an in-memory
+session (lost on restart, so users sign in again) and sets a `console_session`
+cookie: `HttpOnly`, `SameSite=Lax`, `Path=/`. A session expires after 12 hours
+idle or 7 days absolute.
+
+- **Secure cookie.** `CONSOLE_COOKIE_SECURE=auto` (default) sets `Secure` when
+  the request arrived over TLS or carries `X-Forwarded-Proto: https`;
+  `always` forces it. Set `always` when TLS terminates at a proxy, and make the
+  proxy set or overwrite `X-Forwarded-Proto` itself. This header affects
+  **only** the `Secure` attribute of the cookie; Console trusts no other
+  forwarded header.
+- **CSRF.** Cookie-authenticated state-changing requests need the session CSRF
+  token (`X-CSRF-Token` header for htmx, `csrf_token` form field) and pass
+  Go's cross-origin check (`Origin` / `Sec-Fetch-Site`). Requests with an
+  `Authorization` header never use the cookie and are exempt from CSRF.
+- **Login throttling.** A client gets 3 free failed logins; the 4th
+  failure starts a 2s lockout that doubles on each further failure (2s, 4s, 8s,
+  ...) up to 15 minutes. Locked-out clients receive `429` with `Retry-After`. State is in memory and bounded.
+
+**Reverse-proxy caveat.** The throttle keys on the TCP peer address
+(`RemoteAddr`). `X-Forwarded-For` is deliberately ignored because any client can
+forge it. Behind a reverse proxy, every client therefore shares the proxy's
+address as one key: a handful of failed logins from anyone can lock out
+everybody, and an attacker is not slowed per source. Apply rate limiting and
+brute-force protection at the proxy as well, and use long random tokens (the
+generated ones are 256-bit, so guessing is not practical regardless).
+
+### What auth does not cover
+
+- **Secrets embedded in a component's `url`** (userinfo such as
+  `https://user:pass@host`, or a query string like `?token=...`) are **not**
+  redacted. Redaction is by config key name (see §2), and `url` is not a secret
+  key name. Keep credentials out of `url`; put them in a secret-named key such
+  as `api_token`.
+- **Tokens are static.** There is no per-token expiry, revocation list, or
+  managed key store yet; rotate by changing configuration.
+- **No TLS in Console.** Terminate TLS at a proxy or load balancer; bearer
+  tokens and the session cookie are otherwise sent in clear text.
 
 ### The MCP server surface
 
@@ -63,9 +142,10 @@ who launched the subprocess. Two flags change the exposure:
   components). It is **off by default** — without it the server is read- and
   evaluation-only.
 - `-addr host:port` points the server at a running `console serve` over its JSON
-  API instead of the local store. This **inherits the authentication gap above**:
-  target a loopback address or an authenticating proxy, exactly as you would the
-  HTTP API directly.
+  API instead of the local store. Against an authenticated server it needs a
+  token: set `CONSOLE_TOKEN` or pass `-token-file` (`read` scope, or `write` with
+  `-write`). The client refuses to send a token over plain `http://` to a
+  non-loopback host. See [../mcp.md](../mcp.md#authenticating-to-a-server).
 
 ---
 
@@ -77,10 +157,9 @@ Component `config` maps hold API tokens in plaintext — for example, a
 Cloudflare API token or Heroku API key stored directly in the component
 record. These values are:
 
-- Returned verbatim in API responses (e.g. `GET /api/components/{key}`).
 - Stored in plaintext in the SQLite or Postgres database.
-- Reachable to anyone who can call the API (which, without auth, is anyone
-  who can reach the server — see §1).
+- Previously returned verbatim by the API; that is fixed, see "Write-only
+  config" below.
 
 ### Log scrubbing — ✅ Done (v0.2.1)
 
@@ -90,14 +169,19 @@ a secret) previously logged the full URL. Credential redaction
 is now applied before logging: webhook URLs are truncated to their scheme and
 host, and the path (which contains the token) is replaced with `[redacted]`.
 
-### Write-only / redacted API responses — 🔜 Planned
+### Write-only config — ✅ Done
 
-The `config` map in `GET /api/components/{key}` and `GET /api/components`
-responses will be changed to return a redacted representation for any key that
-Console recognises as a credential field (`api_token`, `auth_token`,
-`api_key`, etc.). Operators will be able to write a new value but not read
-back the stored value through the API. Display in the dashboard will show
-`[set]` / `[not set]` rather than the value.
+Component `config` values whose key name looks like a credential (it contains
+`token`, `secret`, `key`, `password`, `credential`, `auth`, `webhook`, `dsn`,
+and similar; the full list is in [../api.md](../api.md)) are returned as the
+literal `"[set]"` on every read path: the API, the dashboard, MCP, and logs.
+On `PUT`, sending `"[set]"` or omitting the key keeps the stored value, so a
+GET-then-PUT round trip does not destroy a secret.
+
+Known limitation: redaction is by **key name only**. A credential embedded in
+the `url` value (userinfo like `https://user:pass@host`, or a query parameter
+such as `?token=...`) is returned and logged as written. Keep credentials out
+of `url` and use a secret-named key instead.
 
 This does not help if the database itself is compromised; it reduces the
 blast radius of API-level exposure.
@@ -157,15 +241,14 @@ network layer.
 
 ---
 
-## 4. CSRF protection — 🔜 Planned (depends on auth)
+## 4. CSRF protection — ✅ Done
 
-The dashboard makes state-changing POST requests from a browser session, but
-because Console has no session authentication yet (§1), CSRF is academic
-today — the attack requires a session that does not exist. When auth lands,
-CSRF becomes active. Full token protection ships with the auth work: a
-per-session CSRF token generated at login, embedded in every form and htmx
-request header (`X-CSRF-Token`), validated server-side on every state-changing
-request, backed by `SameSite=Lax` session cookies.
+Cookie-authenticated state-changing requests (dashboard POSTs) require a
+per-session CSRF token, sent as the `X-CSRF-Token` header (htmx) or the
+`csrf_token` form field, and pass Go's `Origin` / `Sec-Fetch-Site` cross-origin
+check. Session cookies are `SameSite=Lax` and `HttpOnly`. Login and logout are
+covered too. Bearer-token requests carry no ambient credential and are exempt.
+Failures return `403` and increment `console_csrf_failures_total`. See §1.
 
 ---
 
@@ -284,6 +367,8 @@ hosts prefer an SSH tunnel to the loopback address over the override.
   refuse to start unless auth is enabled, and the separate listener enforces
   the same `read`-scope token check as the main listener. The startup check is
   skipped when `CONSOLE_METRICS=off`.
+  The separate listener serves only `/metrics`; `/healthz` stays on the main
+  listener, and `/metrics` is then not served there.
 - **Disable.** `CONSOLE_METRICS=off` removes the endpoint entirely.
 
 ---
@@ -292,14 +377,17 @@ hosts prefer an SSH tunnel to the loopback address over the override.
 
 | Issue | Severity | Status |
 |---|---|---|
-| No API/dashboard auth; `config` returns plaintext tokens | Critical | 🔜 **Run on loopback or behind authenticating proxy until auth lands** |
-| Secrets in API responses and plaintext at rest | Critical | 🔜 Write-only API + at-rest encryption planned |
+| No API/dashboard auth | Critical | ✅ Built-in scoped tokens + dashboard login; startup refuses non-loopback without auth (BREAKING, `0.x`) |
+| Secrets in API responses | Critical | ✅ Write-only `config` secrets (secrets embedded in `url` are not redacted) |
+| Secrets plaintext at rest | High | 🔜 At-rest encryption planned |
 | SSRF via status providers and webhooks | High | 🔜 Private-range-blocking egress client planned |
-| CSRF on dashboard POSTs | High | 🔜 Planned with session auth |
+| CSRF on dashboard POSTs | High | ✅ Session CSRF token + cross-origin check |
+| Login brute force behind a reverse proxy | Medium | Throttle keys on the TCP peer, so proxied clients share one key; rate limit at the proxy |
 | Secrets leaking into logs via URL error messages | Medium | ✅ Credential redaction done (v0.2.1) |
 | Unbounded LLM reads / no server timeouts / RunAll fan-out | Medium | ✅ All three bounded (v0.2.1) |
 | Default bind to all interfaces | High | ✅ Changed to loopback by default (v0.2.1) |
 | `/metrics` exposure | Medium | Unauthenticated while auth is off (loopback default); requires `read` when auth is enabled (both listeners); block at proxy or use `CONSOLE_METRICS_ADDR` |
+| `localhost` trusted by name | Low | Loopback check does not resolve `localhost`; use `127.0.0.1` |
 | pprof exposure | Medium | ✅ Opt-in, separate loopback-only listener (override required for remote) |
 | Security headers | Low | ✅ Restrictive headers + CSP middleware added (v0.2.1) |
 | htmx from CDN without SRI | Low | 🔜 Vendor + SRI; drop the CDN CSP exception |

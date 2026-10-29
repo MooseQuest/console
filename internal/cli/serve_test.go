@@ -16,6 +16,24 @@ func authCfg(addr, metrics, mode string, admin ...string) config.Config {
 	return c
 }
 
+// TestCheckExposureMetricsListener: a non-loopback CONSOLE_METRICS_ADDR only
+// counts as exposure when metrics are actually enabled.
+func TestCheckExposureMetricsListener(t *testing.T) {
+	cfg := authCfg("127.0.0.1:8080", ":9090", "auto")
+	cfg.Metrics = false
+	if err := checkExposure(cfg); err != nil {
+		t.Errorf("Metrics=false, non-loopback metrics addr, no auth: want accepted, got %v", err)
+	}
+	cfg.Metrics = true
+	err := checkExposure(cfg)
+	if err == nil {
+		t.Fatal("Metrics=true, non-loopback metrics addr, no auth: want refused")
+	}
+	if !strings.Contains(err.Error(), "CONSOLE_METRICS_ADDR") {
+		t.Errorf("error %q must name CONSOLE_METRICS_ADDR", err)
+	}
+}
+
 func TestCheckExposure(t *testing.T) {
 	cases := []struct {
 		name    string

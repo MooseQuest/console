@@ -62,15 +62,16 @@ Implementations
 - `obs.Memory` — stdlib in-process registry that renders Prometheus text
   exposition format (hand-rolled; counters, gauges, fixed-bucket histograms).
   Spans are no-ops that still propagate a request ID.
-- OTel adapter (optional; packaging **under review**, see 4.1.1; recommended
-  as a nested module at `contrib/otel`) — OTel SDK adapter exporting traces and metrics over OTLP. Not linked into, and not
+- OTel adapter (optional; packaging decided, see 4.1.1: nested module at
+  `contrib/otel`) — OTel SDK adapter exporting traces and metrics over OTLP. Not linked into, and not
   in the dependency graph of, the default binary.
 
-#### 4.1.1 OTel packaging (resolves #51) — recommendation, NOT yet decided
+#### 4.1.1 OTel packaging (resolves #51) — decided: option B
 
-Status: **open, needs an operator decision.** The first draft recommended a
-nested module; on review the build-tag option was re-evaluated seriously. Both
-survive; the go-plugin option does not.
+Status: **decided (Kristerpher): option B, nested module `contrib/otel` plus a
+`console-otel` binary.** The build-tag option (A) was re-evaluated seriously and
+rejected to keep the core module's dependency graph OTel-free; the go-plugin
+option was eliminated. The analysis below is kept as the rationale.
 
 Correction to earlier text: OTel is **not** currently in `go.mod`/`go.sum`
 (only grpc and protobuf are), so any in-tree option adds a new dependency tree
@@ -196,6 +197,5 @@ growth under ~200 KB.
   Main listener; once auth lands it requires the `read` scope (see
   [auth.md](auth.md) section 3.4). A separate address is recommended and must be
   loopback or authenticated.
-- **OTel adapter packaging: OPEN.** Recommendation B (nested module) vs A
-  (build tag); see the tradeoff table in 4.1.1. Needs an operator decision.
+- **OTel adapter packaging: DECIDED, option B** (nested module); see 4.1.1.
 - Do we want an opt-in anonymous usage ping as a separate follow-up? Out of scope here.

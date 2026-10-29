@@ -12,6 +12,7 @@ import (
 	"github.com/moosequest/console/internal/flags"
 	"github.com/moosequest/console/internal/llm"
 	"github.com/moosequest/console/internal/notify"
+	"github.com/moosequest/console/internal/obs"
 	"github.com/moosequest/console/internal/plugin"
 	"github.com/moosequest/console/internal/status"
 	"github.com/moosequest/console/internal/store"
@@ -31,6 +32,9 @@ type App struct {
 	// Notify fans status transitions and flag changes out to registered sinks.
 	// Always non-nil; sinks are out-of-process notifier plugins (e.g. Slack).
 	Notify *notify.Dispatcher
+	// Obs is the instrumentation Recorder. Always non-nil: obs.Nop when
+	// cfg.Metrics is false, otherwise an in-memory registry (*obs.Memory).
+	Obs obs.Recorder
 
 	// closers tears down loaded plugin subprocesses (notifiers) on Close.
 	closers []func() error
@@ -46,7 +50,13 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
 
+	rec := obs.Nop
+	if cfg.Metrics {
+		rec = obs.NewMemory()
+	}
+
 	a := &App{
+		Obs:    rec,
 		Config: cfg,
 		Store:  st,
 		Flags:  flags.New(st),

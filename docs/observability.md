@@ -95,6 +95,15 @@ Route labels are the registered mux pattern (for example
 | `go_gc_pause_seconds` | gauge | | Cumulative GC stop-the-world pause time; use `rate()`. |
 | `console_build_info` | gauge | `version` | Always 1; carries the running version. |
 
+## OpenTelemetry (OTLP) adapter
+
+An optional adapter pushes metrics and traces over OTLP/HTTP. It lives in the
+separate module `contrib/otel` and ships as the `console-otel` binary, which is
+built in-repo only (not installable with `go install`). Activate it by setting
+`CONSOLE_OTLP_ENDPOINT` to the base URL of a Collector or backend. When OTLP is
+active, `/metrics` is not served; unset the variable to restore it. See
+[contrib/otel/README.md](../contrib/otel/README.md) for build and semantics.
+
 ## Dashboard
 
 Import [grafana/console-dashboard.json](grafana/console-dashboard.json) in

@@ -24,6 +24,13 @@ func RequestID(ctx context.Context) string {
 	return id
 }
 
+// WithRequestID returns ctx carrying id as the request ID, as the request-ID
+// middleware does. It lets out-of-tree Recorder adapters (contrib/otel) test
+// request-ID propagation without standing up the HTTP stack.
+func WithRequestID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, requestIDKey{}, id)
+}
+
 // validRequestID reports whether id is 1..64 chars of [A-Za-z0-9._-].
 func validRequestID(id string) bool {
 	if id == "" || len(id) > maxRequestIDLen {

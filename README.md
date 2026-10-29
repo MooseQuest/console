@@ -43,12 +43,14 @@ It ships with two ways to get an app set up:
 **Docker** (fastest — one command, nothing to install):
 
 ```bash
-docker run --rm -p 8080:8080 ghcr.io/moosequest/console:latest
+# The container binds 0.0.0.0, so Console requires a token to start.
+export CONSOLE_ADMIN_TOKENS=$(docker run --rm ghcr.io/moosequest/console:latest auth token)
+docker run --rm -p 8080:8080 -e CONSOLE_ADMIN_TOKENS ghcr.io/moosequest/console:latest
 ```
 
-Open <http://localhost:8080>. The multi-arch image (`amd64` + `arm64`) is ~20 MB,
+Open <http://localhost:8080> and sign in with the token. The multi-arch image (`amd64` + `arm64`) is ~20 MB,
 starts in milliseconds, and runs the dashboard + API with the built-in SQLite
-store — no config. Add `-v console-data:/data` to persist state, or use
+store — the token is the only required config. Add `-v console-data:/data` to persist state, or use
 [`docker-compose.yml`](docker-compose.yml). Also on Docker Hub as
 `moosequest/console`. Full guide: [docs/docker.md](docs/docker.md).
 
@@ -74,8 +76,9 @@ verify against `SHA256SUMS.txt`, expand it, then run `.\console.exe serve`.
 
 **From source** (needs Go 1.26.10+): `make build` (see [Quickstart](#quickstart)).
 
-`console serve` binds to **loopback** by default (no built-in auth yet — see
-[SECURITY.md](SECURITY.md)). To use a plugin (e.g. Postgres), point the matching
+`console serve` binds to **loopback** by default and refuses to bind anywhere else
+unless a token is configured (`export CONSOLE_ADMIN_TOKENS=$(./console auth token)`;
+see [SECURITY.md](SECURITY.md)). To use a plugin (e.g. Postgres), point the matching
 env var at its binary — see [docs/plugins-architecture.md](docs/plugins-architecture.md).
 
 ### Open it on your phone
@@ -84,17 +87,17 @@ To view the dashboard on your phone, run Console so your LAN can reach it, then
 scan a QR code from the terminal:
 
 ```bash
+export CONSOLE_ADMIN_TOKENS=$(./console auth token)   # a LAN bind requires a token
 CONSOLE_ADDR=:8080 ./console serve --qr   # bind to the LAN + print a QR to scan
 # or, against a running server:
 CONSOLE_ADDR=:8080 ./console qr
 ```
 
 `qr` encodes `http://<your machine's LAN IP>:8080`; scan it from a phone on the
-**same Wi-Fi**. (Binding off loopback exposes the unauthenticated dashboard to
-your network — only do this on a trusted LAN.)
+**same Wi-Fi**. (Sign in with your token. Traffic is plain HTTP, so the token
+crosses your network unencrypted — only do this on a trusted LAN.)
 
-For access from **anywhere**, run a tunnel and QR-encode its URL — the tunnel's
-own access controls are your authentication until Console's lands:
+For access from **anywhere**, run a tunnel and QR-encode its URL — the tunnel is HTTPS, and Console's token login still applies:
 
 ```bash
 cloudflared tunnel --url http://127.0.0.1:8080      # -> https://<name>.trycloudflare.com
@@ -177,7 +180,8 @@ console status snapshot
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/health` | Aggregate health snapshot |
+| `GET` | `/healthz` | Unauthenticated liveness probe |
+| `GET` | `/api/health` | Aggregate health snapshot (`read`) |
 | `GET` | `/api/flags` | List flags |
 | `POST` | `/api/flags` | Create a flag |
 | `GET/PUT/DELETE` | `/api/flags/{key}` | Get / update / delete a flag |
@@ -187,8 +191,13 @@ console status snapshot
 | `GET/PUT/DELETE` | `/api/components/{key}` | Get / update / delete a component |
 | `POST` | `/api/components/{key}/check` | Run a check now |
 
+Once a token is configured every route except `/healthz` needs
+`Authorization: Bearer <token>` with a sufficient scope (`eval` < `read` < `write` < `admin`).
+See [docs/api.md](docs/api.md#authentication-and-scopes).
+
 ```bash
 curl -X POST localhost:8080/api/flags/new-dashboard/evaluate \
+  -H "Authorization: Bearer $CONSOLE_EVAL_TOKEN" \
   -d '{"key":"user-123","attributes":{"audience":"beta"}}'
 # → {"flag_key":"new-dashboard","enabled":true,"variant":"on","reason":"rollout_included"}
 ```
@@ -218,7 +227,7 @@ Both modes produce a plan (components + flags), let you apply it, and can emit a
 
 That's a **read-only** server (list/get flags and components, `evaluate_flag`, `health_snapshot`, `check_component`). Add `-write` to also expose `create_flag`, `set_flag_enabled`, `delete_flag`, `add_component`, and `delete_component` (the `delete_*` tools are annotated destructive). It also serves `console://health` and `console://flags` resources and an `onboard` prompt.
 
-By default it drives the engines **in-process** (no running server needed); `console mcp -addr 127.0.0.1:8080` instead targets a running `console serve`. Console has no built-in auth, so writes are opt-in and remote (`-addr`) use belongs behind loopback or an authenticating proxy. See [docs/mcp.md](docs/mcp.md).
+By default it drives the engines **in-process** (no running server needed); `console mcp -addr 127.0.0.1:8080` instead targets a running `console serve`. Writes are opt-in, and `-addr` against an authenticated server needs `CONSOLE_TOKEN` or `-token-file`. See [docs/mcp.md](docs/mcp.md).
 
 ## Configuration
 
@@ -230,6 +239,8 @@ Core:
 |---|---|---|
 | `CONSOLE_ADDR` | `127.0.0.1:8080` | HTTP listen address (loopback) |
 | `CONSOLE_DB` | `console.db` | SQLite path / DSN (`""` for in-memory) |
+| `CONSOLE_ADMIN_TOKENS` | *(unset)* | API tokens by scope: also `CONSOLE_WRITE_TOKENS`, `CONSOLE_READ_TOKENS`, `CONSOLE_EVAL_TOKENS`; each has a `_FILE` form. Generate with `console auth token`. Required to bind off loopback. |
+| `CONSOLE_COOKIE_SECURE` | `auto` | Dashboard session cookie `Secure` flag: `auto` or `always` |
 
 Plugin selection (each points at a `console-plugin-*` binary; unset = built-in default):
 

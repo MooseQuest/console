@@ -127,13 +127,33 @@ same data is available as JSON under `/api/*` — the dashboard is just a client
 of that API. See the [API reference](api.md).
 
 ```bash
-curl localhost:8080/api/health
+curl localhost:8080/healthz          # unauthenticated liveness probe
+curl localhost:8080/api/health       # needs a read token once auth is enabled
 curl localhost:8080/api/flags
 ```
 
+### Turn on authentication
+
+On loopback with no token, Console runs open, which is fine for local
+experiments. Anywhere else you need a token; `console serve` refuses to start
+on a non-loopback address (`:8080`, `0.0.0.0`) without one.
+
+```bash
+export CONSOLE_ADMIN_TOKENS=$(./console auth token)   # csk_..., 256-bit
+./console serve                                        # now authenticated
+curl -H "Authorization: Bearer $CONSOLE_ADMIN_TOKENS" localhost:8080/api/health
+```
+
+Open the dashboard and sign in at `/login` with the same token. For real
+deployments put tokens in a file (`CONSOLE_ADMIN_TOKENS_FILE`) and create
+lower-scope tokens (`CONSOLE_READ_TOKENS`, `CONSOLE_EVAL_TOKENS`) for clients.
+See [API authentication](api.md#authentication-and-scopes) and
+[runtime hardening](security/runtime-hardening.md).
+
 > **On your phone:** bind off loopback and print a QR to scan from a device on
-> the same Wi-Fi: `CONSOLE_ADDR=:8080 ./console qr`. This exposes the
-> unauthenticated dashboard to your LAN — only do it on a trusted network.
+> the same Wi-Fi: `CONSOLE_ADMIN_TOKENS=$(./console auth token) CONSOLE_ADDR=:8080 ./console serve --qr`.
+> A non-loopback bind requires a token, and the session cookie and token travel
+> unencrypted over plain HTTP, so only do this on a trusted network.
 
 ## Onboard an app
 

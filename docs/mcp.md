@@ -60,7 +60,9 @@ console mcp -addr 127.0.0.1:8080
 
 ### Authenticating to a server
 
-If the server enforces auth (see [design/auth.md](design/auth.md)), give
+If the server enforces auth (see
+[API authentication](api.md#authentication-and-scopes) and
+[runtime hardening](security/runtime-hardening.md)), give
 `console mcp -addr` a bearer token via the `CONSOLE_TOKEN` environment variable
 or `-token-file` (a file holding the token; the trailing newline is trimmed). If
 both are set, the file wins. There is deliberately no `-token` flag, since it
@@ -72,6 +74,9 @@ console mcp -addr https://console.example.com -write -token-file ~/.console-writ
 ```
 
 - Read-only mode needs a token with the `read` scope; `-write` needs `write`.
+  Exception: `check_component` is a read-only tool, but over `-addr` it calls
+  `POST /api/components/{key}/check`, which the server gates at `write`, so it
+  fails with a 403 on a `read` token.
   The server's scope check is the authority. A 401/403 surfaces as a tool error
   naming the scope needed; the token is never echoed.
 - The client refuses to send a token over plain `http://` to a non-loopback

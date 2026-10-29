@@ -206,7 +206,7 @@ console status delete web
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/health` | Aggregate health snapshot |
+| `GET` | `/api/health` | Aggregate health snapshot (needs a `read` token when auth is enabled; use `/healthz` for unauthenticated liveness) |
 | `GET` | `/api/components` | List components |
 | `POST` | `/api/components` | Create a component |
 | `GET` | `/api/components/{key}` | Get a component |

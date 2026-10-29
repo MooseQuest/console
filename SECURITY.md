@@ -5,25 +5,35 @@ seriously and appreciate reports that help keep Console and its users safe.
 
 ## Hardening & deployment
 
-> **Console currently has no built-in API authentication or authorization.**
-> Any HTTP client that can reach the server can read and modify flags and
-> components, and can read component `config` values that may contain API
-> tokens.
->
-> Until authentication ships, you **must** run Console bound to loopback
-> (`127.0.0.1`, the default) and access it through an SSH tunnel, or place it
-> behind an authenticating reverse proxy. Never expose Console directly on a
-> network interface without an authenticating layer in front of it.
->
-> See [docs/security/runtime-hardening.md](docs/security/runtime-hardening.md)
-> for the full explanation, current mitigations, and the remediation roadmap.
+Console has **built-in authentication**: scoped bearer tokens (`eval`, `read`,
+`write`, `admin`) for the API and a token login for the dashboard.
+
+- Generate a token with `console auth token` and configure it with
+  `CONSOLE_ADMIN_TOKENS` (or `CONSOLE_ADMIN_TOKENS_FILE`; also `_WRITE_`,
+  `_READ_`, `_EVAL_`). Tokens are static; rotate by changing the configuration
+  and restarting.
+- `console serve` **refuses to start on a non-loopback address** (including
+  `:8080` and `0.0.0.0`, and the container default) unless a token is
+  configured. With no token it runs open on loopback only, so keep that to local
+  use.
+- `/healthz` is the only unauthenticated API endpoint (plus `/login` and static
+  assets). `GET /api/health` and `/metrics` need a `read` token.
+- Component `config` secrets are write-only: secret-named keys read back as
+  `"[set]"`.
+
+Known limitations: secrets embedded in a component's `url` value are not
+redacted; `localhost` is trusted by name in the loopback check; behind a reverse
+proxy the login throttle sees one client. Terminate TLS in front of Console.
+
+See [docs/security/runtime-hardening.md](docs/security/runtime-hardening.md)
+for the full explanation, scopes, rotation, and remaining roadmap.
 
 ### Security Standard Operating Procedures (SOPs)
 
 Three living documents cover Console's security posture:
 
-- [**Runtime hardening**](docs/security/runtime-hardening.md) — API auth gap
-  (the #1 priority), secrets handling, server-side request forgery (SSRF) and
+- [**Runtime hardening**](docs/security/runtime-hardening.md) — built-in
+  authentication, scopes and rotation, secrets handling, server-side request forgery (SSRF) and
   egress controls, cross-site request forgery (CSRF), security headers, and DoS
   limits. Start here.
 - [**Plugin trust & isolation**](docs/security/plugin-trust.md) — the plugin

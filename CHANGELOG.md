@@ -4,6 +4,62 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [Unreleased]
+
+### BREAKING
+
+Console now ships built-in authentication, default-deny, in a single `0.x`
+release (no warn-first period). Review before upgrading:
+
+- **`console serve` (and the container) refuses to start on a non-loopback
+  address** (including `:8080` and `0.0.0.0`, which the container image uses by
+  default) unless a token is configured or `CONSOLE_AUTH=disabled` is set. The
+  same check covers a non-loopback `CONSOLE_METRICS_ADDR`. Loopback without
+  tokens still runs open, as before.
+- **`GET /api/health` now needs a `read` token** once auth is enabled. Use the
+  new unauthenticated `GET /healthz` (returns `ok`) for liveness probes: Docker,
+  Kubernetes, load balancers, uptime monitors.
+- **`/metrics` needs a `read` token** once auth is enabled, on the main listener
+  and on `CONSOLE_METRICS_ADDR`. Configure Prometheus with an `authorization`
+  scrape setting.
+- **`console mcp -addr` against an authenticated server needs a token**:
+  `CONSOLE_TOKEN` or `-token-file`.
+- The JSON API and dashboard otherwise require a bearer token (or a dashboard
+  login session) with the right scope: `eval` < `read` < `write` < `admin`.
+
+Upgrade checklist:
+
+1. Generate a token: `console auth token` (or
+   `docker run --rm ghcr.io/moosequest/console auth token`).
+2. Set `CONSOLE_ADMIN_TOKENS` (or `CONSOLE_ADMIN_TOKENS_FILE`) on the server,
+   plus `CONSOLE_WRITE_TOKENS` / `CONSOLE_READ_TOKENS` / `CONSOLE_EVAL_TOKENS`
+   for least-privilege clients.
+3. Point health probes at `/healthz` instead of `/api/health`.
+4. Give Prometheus a `read` token; give app clients an `eval` token and send
+   `Authorization: Bearer <token>`; give `console mcp -addr` a `CONSOLE_TOKEN`.
+5. Behind a reverse proxy: read the proxy and login-throttle notes in
+   [runtime hardening](docs/security/runtime-hardening.md). If your own
+   authenticating proxy already protects Console you can keep working by adding
+   a token, or by setting `CONSOLE_AUTH=disabled` (startup logs a warning).
+
+Migration is configuration-only (no data migration). Rolling back to the
+previous release restores the old open behaviour.
+
+### Added
+- Built-in authentication: static bearer tokens with `eval`/`read`/`write`/`admin`
+  scopes, `console auth token`, dashboard login with server-side sessions,
+  CSRF protection for cookie sessions, login throttling, and audit log lines for
+  mutating requests.
+- `GET /healthz`, an unauthenticated liveness endpoint.
+- Component `config` secrets are write-only: secret-named keys render as
+  `"[set]"` on every read path.
+- `CONSOLE_COOKIE_SECURE` (`auto` | `always`) for the session cookie.
+
+### Security
+- Documented known limitations: secrets embedded in a component `url` value are
+  not redacted (redaction is by config key name), and `localhost` is trusted
+  by name for the loopback checks.
+
 ## [0.7.0] - 2026-10-27
 
 ### Security

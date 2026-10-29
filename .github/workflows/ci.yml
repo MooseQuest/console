@@ -91,6 +91,8 @@ jobs:
         run: scripts/check-binary-size.sh
       - name: Observability assets (dashboard, alerts, metric names)
         run: scripts/check-observability.sh
+      - name: Auth docs and packaging guard
+        run: scripts/check-auth-docs.sh
 
   lint:
     name: gofmt

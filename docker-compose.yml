@@ -1,14 +1,21 @@
-# Run Console with a persistent volume:
+# Run Console with a persistent volume. Console requires an API token because the
+# container binds 0.0.0.0. Generate one and export it before starting:
+#   export CONSOLE_ADMIN_TOKENS=$(docker run --rm ghcr.io/moosequest/console auth token)
 #   docker compose up -d
-# Then open http://localhost:8080.
+# Then open http://localhost:8080 and sign in with that token.
+# (Compose also reads CONSOLE_ADMIN_TOKENS from a .env file next to this file.)
 services:
   console:
     image: ghcr.io/moosequest/console:latest
     ports:
       - "8080:8080"
+    environment:
+      CONSOLE_ADMIN_TOKENS: "${CONSOLE_ADMIN_TOKENS:?generate one with docker run --rm ghcr.io/moosequest/console auth token}"
     volumes:
       - console-data:/data
     restart: unless-stopped
+    # Liveness is GET /healthz (unauthenticated). The distroless image has no
+    # shell or curl, so probe it from outside (load balancer, uptime monitor).
 
 volumes:
   console-data:

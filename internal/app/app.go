@@ -57,12 +57,19 @@ func WithRecorder(f func(cfg config.Config) obs.Recorder) Option {
 }
 
 // DefaultRecorder is the default Recorder factory: obs.Nop when cfg.Metrics is
-// false, otherwise an in-memory registry.
+// false, otherwise an in-memory registry with the Go runtime and build_info
+// collector attached.
 func DefaultRecorder(cfg config.Config) obs.Recorder {
-	if cfg.Metrics {
-		return obs.NewMemory()
+	if !cfg.Metrics {
+		return obs.Nop
 	}
-	return obs.Nop
+	mem := obs.NewMemory()
+	version := cfg.Version
+	if version == "" {
+		version = "unknown"
+	}
+	mem.AddCollector(obs.RuntimeCollector(version))
+	return mem
 }
 
 // New assembles an App from cfg. It opens the storage backend, constructs the
@@ -93,6 +100,7 @@ func New(ctx context.Context, cfg config.Config, opts ...Option) (*App, error) {
 	}
 
 	a.Flags.SetRecorder(rec)
+	a.Notify.SetRecorder(rec)
 
 	if err := a.loadPlugins(cfg); err != nil {
 		_ = a.Close()

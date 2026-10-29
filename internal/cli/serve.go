@@ -24,6 +24,7 @@ func (c *cli) cmdServe(args []string, cfg config.Config) error {
 		return err
 	}
 	cfg.Addr, cfg.DB = *addr, *db
+	cfg.Version = c.resolveVersion()
 
 	ctx, cancel := signalContext()
 	defer cancel()

@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+func TestSessionCSRFTokenRandomPerSession(t *testing.T) {
+	s := NewSessionStore(nil)
+	var d [32]byte
+	a, _ := s.Create(Principal{}, d)
+	b, _ := s.Create(Principal{}, d)
+	sa, _ := s.Get(a)
+	sb, _ := s.Get(b)
+	if len(sa.CSRF) != 43 || sa.CSRF == sb.CSRF || sa.CSRF == a {
+		t.Errorf("csrf tokens not random/distinct: %q %q", sa.CSRF, sb.CSRF)
+	}
+}
+
 type fakeClock struct{ t time.Time }
 
 func (c *fakeClock) now() time.Time          { return c.t }

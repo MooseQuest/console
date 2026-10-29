@@ -225,8 +225,8 @@ func TestBearerStillWorks(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	e := newLoginEnv(t, config.Config{})
-	c := sessionCookieOf(e.login(tokWrite, nil))
-	rr := e.do("POST", "/logout", url.Values{}, nil, c)
+	c, tok := csrfSession(t, e)
+	rr := e.do("POST", "/logout", url.Values{"csrf_token": {tok}}, nil, c)
 	if rr.Code != http.StatusSeeOther || rr.Header().Get("Location") != "/login?signed_out=1" {
 		t.Fatalf("logout: %d -> %q", rr.Code, rr.Header().Get("Location"))
 	}

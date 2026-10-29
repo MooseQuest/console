@@ -25,7 +25,9 @@ type Session struct {
 	// Digest is SHA-256 of the login token; re-checked against the current
 	// token set on every request so removing a token revokes its sessions.
 	Digest [sha256.Size]byte
-	// CSRF is the synchronizer-token slot for #76; empty until it is wired.
+	// CSRF is the per-session synchronizer token (256 random bits,
+	// base64url). It is delivered to templates and compared in constant time
+	// on cookie-authenticated unsafe requests; it is never logged.
 	CSRF    string
 	Created time.Time
 	Seen    time.Time
@@ -70,6 +72,10 @@ func (s *SessionStore) Create(p Principal, digest [sha256.Size]byte) (string, er
 	if err != nil {
 		return "", err
 	}
+	csrf, err := newID()
+	if err != nil {
+		return "", err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.now()
@@ -90,7 +96,7 @@ func (s *SessionStore) Create(p Principal, digest [sha256.Size]byte) (string, er
 		}
 		delete(s.sessions, oldest)
 	}
-	s.sessions[id] = &Session{Principal: p, Digest: digest, Created: now, Seen: now}
+	s.sessions[id] = &Session{Principal: p, Digest: digest, CSRF: csrf, Created: now, Seen: now}
 	return id, nil
 }
 

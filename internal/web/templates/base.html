@@ -8,7 +8,7 @@
   <!-- TODO: vendor htmx for offline use -->
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
-<body>
+<body{{if .CSRF}} hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}'{{end}}>
   <div class="shell">
     <aside class="sidebar">
       <div class="brand"><span class="mark"></span> Console</div>
@@ -28,7 +28,7 @@
       <header class="topbar">
         <h1>{{.Title}}</h1>
         {{if .Auth}}<span class="topbar-spacer"></span>
-        <form method="post" action="/logout"><button type="submit" class="btn">Sign out</button></form>{{end}}
+        <form method="post" action="/logout">{{if .CSRF}}<input type="hidden" name="csrf_token" value="{{.CSRF}}">{{end}}<button type="submit" class="btn">Sign out</button></form>{{end}}
       </header>
       <main class="content">
         {{template "content" .}}

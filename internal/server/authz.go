@@ -120,7 +120,7 @@ func (s *Server) authMiddleware(next *http.ServeMux) http.Handler {
 		mutating := isMutating(r.Method)
 		sr := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 
-		p, err := s.authenticate(r)
+		p, csrf, viaCookie, err := s.authenticate(r)
 		switch {
 		case err != nil:
 			if !errors.Is(err, auth.ErrUnauthenticated) {
@@ -154,7 +154,21 @@ func (s *Server) authMiddleware(next *http.ServeMux) http.Handler {
 			return
 		}
 
-		r2 := r.WithContext(context.WithValue(r.Context(), principalKey{}, p))
+		// CSRF applies only to cookie-authenticated unsafe requests; bearer
+		// clients carry no ambient credential and are exempt.
+		if viaCookie && mutating {
+			if reason := s.csrfCheck(r, csrf); reason != "" {
+				s.csrfDeny(sr, r, pattern, reason)
+				s.audit(r, pattern, p.Name, p.Scope, sr.status, mutating)
+				return
+			}
+		}
+
+		ctx := context.WithValue(r.Context(), principalKey{}, p)
+		if viaCookie {
+			ctx = context.WithValue(ctx, csrfKey{}, csrf)
+		}
+		r2 := r.WithContext(ctx)
 		// The mux records the matched pattern on r2; propagate it back so
 		// outer middleware (logging, metrics) see it.
 		defer func() { r.Pattern = r2.Pattern }()
@@ -165,16 +179,17 @@ func (s *Server) authMiddleware(next *http.ServeMux) http.Handler {
 
 // authenticate resolves the request's principal: an Authorization header takes
 // precedence (API clients never fall back to cookies); otherwise a valid
-// session cookie is accepted. NOTE: cookie-authenticated unsafe requests are
-// not yet CSRF-protected beyond SameSite=Lax; that is #76.
-func (s *Server) authenticate(r *http.Request) (auth.Principal, error) {
+// session cookie is accepted. viaCookie reports a session login, in which case
+// csrf is the session's CSRF token.
+func (s *Server) authenticate(r *http.Request) (p auth.Principal, csrf string, viaCookie bool, err error) {
 	if r.Header.Get("Authorization") != "" {
-		return s.authn.Authenticate(r)
+		p, err = s.authn.Authenticate(r)
+		return p, "", false, err
 	}
-	if p, ok := s.sessionFromRequest(r); ok {
-		return p, nil
+	if p, csrf, ok := s.sessionAuth(r); ok {
+		return p, csrf, true, nil
 	}
-	return auth.Principal{}, auth.ErrUnauthenticated
+	return auth.Principal{}, "", false, auth.ErrUnauthenticated
 }
 
 // isMutating reports whether m is a state-changing method.

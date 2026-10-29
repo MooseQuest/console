@@ -16,11 +16,15 @@ type pageData struct {
 	Nav   string
 	// Auth is true when authentication is on, so the shell shows "Sign out".
 	Auth bool
+	// CSRF is the session's CSRF token (empty when auth is off or the caller
+	// is not cookie-authenticated). Templates send it as X-CSRF-Token via
+	// hx-headers on <body> and as a hidden field on plain forms.
+	CSRF string
 }
 
 // page builds the shell data for a dashboard page.
-func (s *Server) page(title, nav string) pageData {
-	return pageData{Title: title, Nav: nav, Auth: s.authn != nil}
+func (s *Server) page(r *http.Request, title, nav string) pageData {
+	return pageData{Title: title, Nav: nav, Auth: s.authn != nil, CSRF: csrfFrom(r.Context())}
 }
 
 // overviewData drives the Overview page: the aggregate health snapshot plus a
@@ -62,7 +66,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.render(w, "overview", "overview.html", overviewData{
-		pageData:         s.page("Overview", "overview"),
+		pageData:         s.page(r, "Overview", "overview"),
 		Health:           health,
 		Checks:           health.Components,
 		FlagCount:        len(flags),
@@ -85,7 +89,7 @@ func (s *Server) handleFlagsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.render(w, "flags", "flags.html", flagsData{
-		pageData: s.page("Flags", "flags"),
+		pageData: s.page(r, "Flags", "flags"),
 		Flags:    flags,
 	})
 }
@@ -141,7 +145,7 @@ func (s *Server) handleStatusPage(w http.ResponseWriter, r *http.Request) {
 		views = append(views, s.componentViewFor(r, c))
 	}
 	s.render(w, "status", "status.html", statusData{
-		pageData:   s.page("Status", "status"),
+		pageData:   s.page(r, "Status", "status"),
 		Components: views,
 	})
 }

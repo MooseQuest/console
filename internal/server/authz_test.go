@@ -193,6 +193,46 @@ func TestUnknownRouteFailsClosed(t *testing.T) {
 	}
 }
 
+// TestDeniedRequestsKeepRoute asserts 401 and 403 responses are logged and
+// counted under their matched route pattern, not "unmatched".
+func TestDeniedRequestsKeepRoute(t *testing.T) {
+	var buf bytes.Buffer
+	mem := obs.NewMemory()
+	h := authedServer(t, mem, &buf)
+	if rr := call(h, "GET", "/api/flags", ""); rr.Code != http.StatusUnauthorized {
+		t.Fatalf("want 401, got %d", rr.Code)
+	}
+	if rr := call(h, "POST", "/api/flags", tokRead); rr.Code != http.StatusForbidden {
+		t.Fatalf("want 403, got %d", rr.Code)
+	}
+
+	logs := buf.String()
+	for _, want := range []string{
+		`route="GET /api/flags" status=401`,
+		`route="POST /api/flags" status=403`,
+	} {
+		if !strings.Contains(logs, want) {
+			t.Errorf("request log missing %q:\n%s", want, logs)
+		}
+	}
+	if strings.Contains(logs, "route=unmatched") {
+		t.Errorf("request log has unmatched route:\n%s", logs)
+	}
+
+	body := call(h, "GET", "/metrics", tokRead).Body.String()
+	for _, want := range []string{
+		`console_http_requests_total{code="401",method="GET",route="GET /api/flags"} 1`,
+		`console_http_requests_total{code="403",method="POST",route="POST /api/flags"} 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("metrics missing %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, `route="unmatched"`) {
+		t.Errorf("metrics have unmatched route:\n%s", body)
+	}
+}
+
 func TestAuditLog(t *testing.T) {
 	var buf bytes.Buffer
 	h := authedServer(t, obs.NewMemory(), &buf)

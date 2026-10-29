@@ -107,6 +107,10 @@ func (s *Server) authMiddleware(next *http.ServeMux) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		// Record the matched pattern on the original request now, so denied
+		// requests (which return before the mux runs) are still logged and
+		// counted under their route rather than "unmatched".
+		r.Pattern = pattern
 		rule, known := routeScopes[pattern]
 		if known && rule.exempt {
 			next.ServeHTTP(w, r)

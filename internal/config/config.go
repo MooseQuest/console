@@ -50,6 +50,13 @@ type Config struct {
 	// Version is the build version reported by console_build_info. It is set
 	// by the caller (not read from the environment); empty becomes "unknown".
 	Version string
+	// AuthMode is CONSOLE_AUTH: "auto" (default) or "disabled". Check with Validate.
+	AuthMode string
+	// Tokens are the static API tokens (CONSOLE_{ADMIN,WRITE,READ,EVAL}_TOKENS
+	// and _FILE variants). Secret; renders as counts only.
+	Tokens Tokens
+
+	authErr error // token-source error from FromEnv, reported by Validate
 }
 
 // Log formats accepted by Config.LogFormat.
@@ -60,6 +67,9 @@ const (
 
 // Validate reports a configuration error, e.g. an unknown CONSOLE_LOG_FORMAT.
 func (c Config) Validate() error {
+	if err := c.validateAuth(); err != nil {
+		return err
+	}
 	switch c.LogFormat {
 	case LogText, LogJSON:
 		return nil
@@ -75,6 +85,7 @@ func Default() Config {
 
 		Metrics:   true,
 		LogFormat: LogText,
+		AuthMode:  AuthAuto,
 	}
 }
 
@@ -90,6 +101,10 @@ func Default() Config {
 //	CONSOLE_METRICS        "off"/"false"/"0"/"no" disables metrics (default on)
 //	CONSOLE_METRICS_ADDR   serve /metrics on this separate address (default: main listener)
 //	CONSOLE_LOG_FORMAT     "text" (default) or "json"; anything else fails Validate
+//	CONSOLE_AUTH           "auto" (default) or "disabled"; anything else fails Validate
+//	CONSOLE_{ADMIN,WRITE,READ,EVAL}_TOKENS  comma-separated API tokens per scope
+//	CONSOLE_{...}_TOKENS_FILE  same, one token per line (blank lines and # comments
+//	                       ignored); setting both NAME and NAME_FILE is an error
 //
 // Provider-specific variables (e.g. ANTHROPIC_API_KEY, CLOUDFLARE_API_TOKEN,
 // CONSOLE_SLACK_WEBHOOK_URL, CONSOLE_MODEL) are read by the relevant plugin,
@@ -110,6 +125,7 @@ func FromEnv() Config {
 	if v := strings.ToLower(strings.TrimSpace(os.Getenv("CONSOLE_LOG_FORMAT"))); v != "" {
 		c.LogFormat = v
 	}
+	c.loadAuth()
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("CONSOLE_METRICS"))) {
 	case "off", "false", "0", "no":
 		c.Metrics = false

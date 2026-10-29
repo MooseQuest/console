@@ -22,3 +22,15 @@ func TestAuthToken(t *testing.T) {
 		t.Error("usage must list auth")
 	}
 }
+
+func TestAuthUsageDocumentsConfig(t *testing.T) {
+	var b bytes.Buffer
+	if err := runAuth([]string{"help"}, &b); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Comma-separated", "trimmed", "_TOKENS_FILE", "CONSOLE_AUTH", "refuses to start"} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("usage missing %q", want)
+		}
+	}
+}

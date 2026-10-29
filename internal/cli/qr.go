@@ -10,6 +10,7 @@ import (
 	"github.com/mdp/qrterminal/v3"
 
 	"github.com/moosequest/console/internal/config"
+	"github.com/moosequest/console/internal/netutil"
 )
 
 const qrUsage = `Show a QR code to open the Console dashboard on your phone.
@@ -37,7 +38,7 @@ func (c *cli) cmdQR(args []string, cfg config.Config) error {
 		return fmt.Errorf("could not detect this machine's LAN IP: %w (pass -url instead)", err)
 	}
 	port := addrPort(cfg.Addr)
-	return showQR(os.Stdout, fmt.Sprintf("http://%s:%s", ip, port), isLoopback(cfg.Addr), port)
+	return showQR(os.Stdout, fmt.Sprintf("http://%s:%s", ip, port), netutil.IsLoopback(cfg.Addr), port)
 }
 
 // showQR prints target plus a scannable terminal QR code. When derived (not a
@@ -95,18 +96,4 @@ func addrPort(addr string) string {
 		return port
 	}
 	return "8080"
-}
-
-// isLoopback reports whether addr binds only the loopback interface (so a phone
-// on the LAN can't reach it). An empty host (e.g. ":8080") binds all interfaces.
-func isLoopback(addr string) bool {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil || host == "" {
-		return false
-	}
-	if host == "localhost" {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }

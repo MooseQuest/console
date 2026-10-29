@@ -8,10 +8,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/moosequest/console/internal/app"
 	"github.com/moosequest/console/internal/config"
+	"github.com/moosequest/console/internal/netutil"
 	"github.com/moosequest/console/internal/pprofsrv"
 	"github.com/moosequest/console/internal/server"
 )
@@ -31,6 +33,10 @@ func (c *cli) cmdServe(args []string, cfg config.Config) error {
 		return err
 	}
 	slog.SetDefault(server.NewLogger(os.Stderr, cfg.LogFormat))
+
+	if err := checkExposure(cfg); err != nil {
+		return err
+	}
 
 	ctx, cancel := signalContext()
 	defer cancel()
@@ -54,6 +60,9 @@ func (c *cli) cmdServe(args []string, cfg config.Config) error {
 	}
 
 	hsrv := server.New(a)
+	if a.Auth != nil {
+		hsrv.WithAuthenticator(a.Auth)
+	}
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           hsrv.Handler(),
@@ -98,7 +107,7 @@ func (c *cli) cmdServe(args []string, cfg config.Config) error {
 		c.resolveVersion(), cfg.Addr, displayDB(cfg.DB), a.LLM != nil)
 	if *qr {
 		if ip, err := lanIP(); err == nil {
-			_ = showQR(os.Stdout, fmt.Sprintf("http://%s:%s", ip, addrPort(cfg.Addr)), isLoopback(cfg.Addr), addrPort(cfg.Addr))
+			_ = showQR(os.Stdout, fmt.Sprintf("http://%s:%s", ip, addrPort(cfg.Addr)), netutil.IsLoopback(cfg.Addr), addrPort(cfg.Addr))
 		} else {
 			fmt.Fprintf(os.Stderr, "console: -qr: could not detect LAN IP: %v\n", err)
 		}
@@ -108,6 +117,31 @@ func (c *cli) cmdServe(args []string, cfg config.Config) error {
 	}
 	fmt.Println("console: shut down")
 	return nil
+}
+
+// checkExposure enforces the startup auth policy (docs/design/auth.md 4.5): a
+// non-loopback bind (main listener or CONSOLE_METRICS_ADDR) without enabled
+// authentication is refused before anything listens. CONSOLE_AUTH=disabled is
+// the explicit opt-out and logs a warning on every startup.
+func checkExposure(cfg config.Config) error {
+	var exposed []string
+	if !netutil.IsLoopback(cfg.Addr) {
+		exposed = append(exposed, "CONSOLE_ADDR "+cfg.Addr)
+	}
+	if cfg.MetricsAddr != "" && !netutil.IsLoopback(cfg.MetricsAddr) {
+		exposed = append(exposed, "CONSOLE_METRICS_ADDR "+cfg.MetricsAddr)
+	}
+	if len(exposed) == 0 || cfg.AuthEnabled() {
+		return nil
+	}
+	if cfg.AuthMode == config.AuthDisabled {
+		slog.Warn("authentication is DISABLED on a non-loopback bind; ensure an authenticating proxy fronts Console",
+			"bind", strings.Join(exposed, ", "))
+		return nil
+	}
+	return fmt.Errorf("refusing to start: %s is not loopback and authentication is not enabled; "+
+		"either set a token (e.g. CONSOLE_ADMIN_TOKENS=$(console auth token), or CONSOLE_ADMIN_TOKENS_FILE) "+
+		"or set CONSOLE_AUTH=disabled if an authenticating proxy fronts Console", strings.Join(exposed, ", "))
 }
 
 func displayDB(db string) string {

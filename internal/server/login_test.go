@@ -331,3 +331,42 @@ func TestLoginRoutesOpenWhenAuthDisabled(t *testing.T) {
 		t.Errorf("GET /login with auth off = %d", rr.Code)
 	}
 }
+
+func TestLoginCrossOriginRejected(t *testing.T) {
+	cases := []map[string]string{
+		{"Origin": "https://evil.example", "Sec-Fetch-Site": "cross-site"},
+		{"Origin": "https://evil.example"},
+		{"Sec-Fetch-Site": "cross-site"},
+	}
+	for _, hdr := range cases {
+		e := newLoginEnv(t, config.Config{})
+		rr := e.login(tokWrite, hdr)
+		if rr.Code != http.StatusForbidden {
+			t.Fatalf("%v: status %d, want 403", hdr, rr.Code)
+		}
+		if sessionCookieOf(rr) != nil || rr.Header().Get("Set-Cookie") != "" {
+			t.Errorf("%v: session set on rejection", hdr)
+		}
+		if !strings.Contains(rr.Body.String(), "forbidden") {
+			t.Errorf("%v: not the generic 403 body: %q", hdr, rr.Body.String())
+		}
+		m := e.doJSON("GET", "/metrics", "", map[string]string{"Authorization": "Bearer " + tokRead})
+		if !strings.Contains(m.Body.String(), `console_csrf_failures_total{reason="cross_origin"} 1`) {
+			t.Errorf("%v: cross_origin counter missing", hdr)
+		}
+	}
+}
+
+func TestLoginSameOriginAndHeaderlessAccepted(t *testing.T) {
+	for name, hdr := range map[string]map[string]string{
+		"no headers":  nil,
+		"same-origin": {"Origin": "http://example.com", "Sec-Fetch-Site": "same-origin"},
+		"none":        {"Sec-Fetch-Site": "none"},
+	} {
+		e := newLoginEnv(t, config.Config{})
+		rr := e.login(tokWrite, hdr)
+		if rr.Code != http.StatusSeeOther || sessionCookieOf(rr) == nil {
+			t.Errorf("%s: got %d cookie=%v", name, rr.Code, sessionCookieOf(rr))
+		}
+	}
+}

@@ -54,6 +54,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
+	// Login CSRF: there is no session yet, so no token to check, but a
+	// cross-origin browser POST must not be able to sign the victim in.
+	// Requests without Origin/Sec-Fetch-Site (CLI, same-origin) pass.
+	if err := crossOrigin.Check(r); err != nil {
+		s.csrfDeny(w, r, "POST /login", csrfReasonCrossOrigin)
+		return
+	}
 	key := clientKey(r)
 	if wait := s.throttle.Check(key); wait > 0 {
 		secs := int((wait + time.Second - 1) / time.Second)

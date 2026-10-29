@@ -2,8 +2,11 @@ package obs
 
 import "context"
 
-// Nop is the do-nothing Recorder used when observability is disabled. Every
-// method is allocation-free (verified by tests).
+// Nop is the do-nothing Recorder used when observability is disabled. Calls
+// without labels are allocation-free (verified by tests). Passing labels through
+// the Recorder interface may allocate the variadic slice, so hot paths should
+// resolve instruments once at construction and reuse them rather than looking
+// them up, with labels, on every call.
 var Nop Recorder = nop{}
 
 type nop struct{}

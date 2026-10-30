@@ -4,7 +4,7 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
-## [Unreleased]
+## [0.8.0] - 2026-10-30
 
 ### BREAKING
 

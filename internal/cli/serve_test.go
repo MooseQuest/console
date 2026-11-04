@@ -77,3 +77,16 @@ func TestCheckExposure(t *testing.T) {
 		})
 	}
 }
+
+// TestServeRejectsBadAuditRetention: an invalid CONSOLE_AUDIT_RETENTION_DAYS
+// stops startup with an error naming the variable, before anything listens.
+func TestServeRejectsBadAuditRetention(t *testing.T) {
+	for _, v := range []string{"-5", "abc"} {
+		t.Setenv("CONSOLE_AUDIT_RETENTION_DAYS", v)
+		c := &cli{}
+		err := c.cmdServe([]string{"-addr", "127.0.0.1:0", "-db", ""}, config.FromEnv())
+		if err == nil || !strings.Contains(err.Error(), "CONSOLE_AUDIT_RETENTION_DAYS") {
+			t.Fatalf("%q: want retention error, got %v", v, err)
+		}
+	}
+}

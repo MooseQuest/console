@@ -58,8 +58,13 @@ type Config struct {
 	// CookieSecure is CONSOLE_COOKIE_SECURE: "auto" (default) or "always".
 	// Check with Validate.
 	CookieSecure string
+	// AuditRetentionDays is CONSOLE_AUDIT_RETENTION_DAYS: how many days of
+	// key-management audit events `serve` keeps. 0 keeps them forever. Defaults
+	// to DefaultAuditRetentionDays.
+	AuditRetentionDays int
 
-	authErr error // token-source error from FromEnv, reported by Validate
+	authErr      error // token-source error from FromEnv, reported by Validate
+	retentionErr error // CONSOLE_AUDIT_RETENTION_DAYS error from FromEnv, reported by Validate
 }
 
 // Log formats accepted by Config.LogFormat.
@@ -72,6 +77,12 @@ const (
 func (c Config) Validate() error {
 	if err := c.validateAuth(); err != nil {
 		return err
+	}
+	if c.retentionErr != nil {
+		return c.retentionErr
+	}
+	if c.AuditRetentionDays < 0 || c.AuditRetentionDays > MaxAuditRetentionDays {
+		return fmt.Errorf("invalid audit retention %d days: must be between 0 and %d", c.AuditRetentionDays, MaxAuditRetentionDays)
 	}
 	switch c.LogFormat {
 	case LogText, LogJSON:
@@ -91,6 +102,8 @@ func Default() Config {
 		AuthMode:  AuthAuto,
 
 		CookieSecure: CookieSecureAuto,
+
+		AuditRetentionDays: DefaultAuditRetentionDays,
 	}
 }
 
@@ -108,6 +121,8 @@ func Default() Config {
 //	CONSOLE_LOG_FORMAT     "text" (default) or "json"; anything else fails Validate
 //	CONSOLE_AUTH           "auto" (default) or "disabled"; anything else fails Validate
 //	CONSOLE_COOKIE_SECURE  session cookie Secure flag: "auto" (default) or "always"
+//	CONSOLE_AUDIT_RETENTION_DAYS  days of key audit events to keep: unset = 90,
+//	                       0 = forever; negative or non-numeric fails Validate
 //	CONSOLE_{ADMIN,WRITE,READ,EVAL}_TOKENS  comma-separated API tokens per scope
 //	CONSOLE_{...}_TOKENS_FILE  same, one token per line (blank lines and # comments
 //	                       ignored); setting both NAME and NAME_FILE is an error
@@ -132,6 +147,7 @@ func FromEnv() Config {
 		c.LogFormat = v
 	}
 	c.loadAuth()
+	c.loadRetention()
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("CONSOLE_METRICS"))) {
 	case "off", "false", "0", "no":
 		c.Metrics = false

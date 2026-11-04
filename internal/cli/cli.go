@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -70,7 +71,7 @@ Commands:
   onboard     Onboard an app into Console (Human or AI-Assisted mode)
   qr          Show a QR code to open the dashboard on your phone
   mcp         Serve Console over the Model Context Protocol (for AI agents)
-  auth        Generate API tokens (console auth token)
+  auth        Generate API tokens, manage stored keys and the audit trail
   version     Print the version
   help        Show this help
 
@@ -90,11 +91,15 @@ Run "console <command> -h" for command-specific flags.
 `
 
 // Main runs the Console CLI with os.Args and returns the process exit code
-// (0 on success, 1 on error). The caller passes it to os.Exit.
+// (0 on success, 1 on a runtime error, 2 on a usage error). The caller passes it to os.Exit.
 func Main(opts Options) int {
 	c := &cli{opts: opts}
 	if err := c.run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "console: "+err.Error())
+		var ue *usageError
+		if errors.As(err, &ue) {
+			return 2
+		}
 		return 1
 	}
 	return 0
@@ -123,7 +128,7 @@ func (c *cli) run(args []string) error {
 	case "mcp":
 		return c.cmdMCP(rest, cfg)
 	case "auth":
-		return cmdAuth(rest)
+		return c.cmdAuth(rest, cfg)
 	case "version", "--version", "-v":
 		fmt.Printf("console %s\n", c.resolveVersion())
 		return nil

@@ -75,6 +75,39 @@ evaluate flags), a `read` token for dashboards, monitors and Prometheus, and a
   which is never combined with the cookie and needs no CSRF token.
 - With no token configured, Console runs open, but only on a loopback bind.
 
+### Managed API keys (`console auth key`)
+
+Besides the environment tokens, SQLite deployments can store keys, which can
+be created, expired and revoked without a restart:
+
+```bash
+console auth key create ci-bot -scope read -expires-in 90d   # prints the token once
+console auth key list [-json]                                  # never shows digests
+console auth key revoke ci-bot                                 # by id or by name
+console auth audit list [-since 7d] [-limit 50] [-json]
+console auth audit prune [-older-than 90d | -all]
+```
+
+- `create` prints the plaintext token to stdout exactly once and stores only its
+  SHA-256 digest; lose it and you must create a new key. `-scope` is required;
+  `-expires-in` takes Go durations or whole days (`36h`, `90d`) and must be
+  positive.
+- `revoke` resolves its argument as a key id first, then as a name. The server
+  re-checks the key store on every request, so revocation takes effect on the
+  next request, provided the CLI and the server share the same SQLite file
+  (the same `CONSOLE_DB`).
+- Key creation, revocation and pruning are recorded as audit events with
+  principal `cli`; the target is the key id (or, for `audit.prune`, the number
+  of events deleted).
+- `audit prune` with no flag deletes events older than
+  `CONSOLE_AUDIT_RETENTION_DAYS` (default 90). If that is `0` (keep forever) it
+  refuses and asks for `-older-than`. `-older-than 0` is refused unless `-all`,
+  and `-all` cannot be combined with a positive `-older-than`.
+- Backends without a key store (plugin stores) cannot use these commands; use
+  the `CONSOLE_*_TOKENS` variables.
+- Exit codes: `2` for usage errors, `1` for runtime errors (unknown key,
+  already revoked, store failures).
+
 The `curl` examples in the rest of this page omit the header for brevity; add
 `-H "Authorization: Bearer $CONSOLE_TOKEN"` when auth is enabled.
 

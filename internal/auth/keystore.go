@@ -17,6 +17,9 @@ var (
 	ErrNotFound = errors.New("auth: not found")
 	// ErrDuplicateName means a key with the same name already exists.
 	ErrDuplicateName = errors.New("auth: duplicate key name")
+	// ErrDuplicateKey means a key with the same id or digest already exists, so
+	// one token can never resolve to two keys (e.g. a revoked and a live one).
+	ErrDuplicateKey = errors.New("auth: duplicate key id or digest")
 	// ErrAlreadyRevoked means the key was revoked before this call.
 	ErrAlreadyRevoked = errors.New("auth: key already revoked")
 )
@@ -85,7 +88,8 @@ type AuditFilter struct {
 // implement it fall back to env-defined tokens only.
 type KeyStore interface {
 	// CreateKey stores a fully populated Key (digest only). It returns
-	// ErrDuplicateName if the name is taken.
+	// ErrDuplicateName if the name is taken and ErrDuplicateKey if the id or
+	// digest is.
 	CreateKey(ctx context.Context, k Key) error
 	// LookupKey returns the key with the given digest, including revoked and
 	// expired keys, or ErrNotFound. The caller decides whether it is usable.
@@ -129,6 +133,9 @@ func (m *MemKeyStore) CreateKey(_ context.Context, k Key) error {
 	for _, e := range m.keys {
 		if e.Name == k.Name {
 			return ErrDuplicateName
+		}
+		if e.ID == k.ID || e.Digest == k.Digest {
+			return ErrDuplicateKey
 		}
 	}
 	m.keys[k.ID] = k

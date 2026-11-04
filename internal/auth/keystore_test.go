@@ -94,3 +94,19 @@ func TestAuditActionVocabulary(t *testing.T) {
 		t.Fatal("audit action constants changed")
 	}
 }
+
+func TestMemKeyStoreRejectsDuplicateIDAndDigest(t *testing.T) {
+	ctx := context.Background()
+	ks := NewMemKeyStore()
+	if err := ks.CreateKey(ctx, mkKey("k1", "one", "tok", Read)); err != nil {
+		t.Fatal(err)
+	}
+	// Same id must not overwrite (it could resurrect a revoked key or change scope).
+	if err := ks.CreateKey(ctx, mkKey("k1", "two", "other", Admin)); !errors.Is(err, ErrDuplicateKey) {
+		t.Errorf("duplicate id: got %v, want ErrDuplicateKey", err)
+	}
+	// Same digest must not give one token two keys.
+	if err := ks.CreateKey(ctx, mkKey("k2", "three", "tok", Admin)); !errors.Is(err, ErrDuplicateKey) {
+		t.Errorf("duplicate digest: got %v, want ErrDuplicateKey", err)
+	}
+}

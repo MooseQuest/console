@@ -1,0 +1,166 @@
+{{define "keys"}}{{template "base" .}}{{end}}
+
+{{define "content"}}
+{{if eq .Mode "unavailable"}}
+  <section class="panel">
+    <h2>API keys unavailable</h2>
+    <div class="panel-body">
+      <p id="page-heading" tabindex="-1" autofocus>Managed API keys need the SQLite store, and this storage backend does not provide one.</p>
+      <p class="muted">Tokens set with the <span class="mono">CONSOLE_*_TOKENS</span> environment variables still work; they are not managed here.</p>
+    </div>
+  </section>
+{{else if eq .Mode "message"}}
+  <section class="panel">
+    <h2>{{.Heading}}</h2>
+    <div class="panel-body">
+      <p{{if .Alert}} class="login-error" role="alert"{{end}} id="page-heading" tabindex="-1" autofocus>{{.Message}}</p>
+      {{if .RequestID}}<p class="muted">Request ID: <span class="mono">{{.RequestID}}</span></p>{{end}}
+      <p><a href="/keys">Back to API keys</a></p>
+    </div>
+  </section>
+{{else if eq .Mode "confirm"}}
+  <section class="panel">
+    <h2>Revoke key</h2>
+    <div class="panel-body">
+      <h3 id="confirm-heading" tabindex="-1" autofocus>Revoke key {{.Confirm.Name}}?</h3>
+      <p>Anything using it stops working immediately.</p>
+      {{if .Confirm.Self}}<p class="login-error" role="alert">This is the key behind your current session. Revoking it signs you out immediately.</p>{{end}}
+      <div class="actions">
+        <a href="/keys" class="btn">Cancel</a>
+        <form method="post" action="/keys/{{.Confirm.ID}}/revoke">
+          {{if .CSRF}}<input type="hidden" name="csrf_token" value="{{.CSRF}}">{{end}}
+          <input type="hidden" name="confirm" value="1">
+          <button type="submit" class="btn btn-primary">{{if .Confirm.Self}}Revoke and sign out{{else}}Revoke key{{end}}</button>
+        </form>
+      </div>
+    </div>
+  </section>
+{{else}}
+  {{if .Created}}
+  <section class="panel" aria-labelledby="created-heading">
+    <div class="panel-body note" role="status">
+      <h2 class="note-title" id="created-heading" tabindex="-1" autofocus>Key created: {{.Created.Name}} ({{.Created.Scope}})</h2>
+      <label for="secret">New key (shown once)</label>
+      <input id="secret" class="mono secret" readonly autocomplete="off" spellcheck="false" aria-describedby="secret-hint" value="{{.Created.Token}}">
+      <p id="secret-hint" class="muted">Copy it now. It cannot be shown again.</p>
+      <p><button type="button" id="copy-secret" class="btn" hidden>Copy</button> <span id="copy-status" role="status"></span></p>
+    </div>
+  </section>
+  <script src="/static/keys.js" defer></script>
+  {{end}}
+  {{if .Revoked}}<p class="note" role="status" id="revoked-note" tabindex="-1" autofocus>Key revoked.</p>{{end}}
+  {{if .AuditNotice}}<p class="login-error" role="alert">Done, but the audit event could not be recorded.</p>{{end}}
+
+  <section class="panel" aria-labelledby="create-heading">
+    <h2 id="create-heading">Create key</h2>
+    <div class="panel-body">
+      {{if .Error}}<p class="login-error" role="alert" id="form-error">{{.Error}}</p>{{end}}
+      <form method="post" action="/keys" class="field-grid">
+        {{if .CSRF}}<input type="hidden" name="csrf_token" value="{{.CSRF}}">{{end}}
+        <div class="field">
+          <label for="key-name">Name</label>
+          <input id="key-name" name="name" type="text" required maxlength="{{.MaxName}}" autocomplete="off" value="{{.Form.Name}}"{{if eq .ErrorField "name"}} aria-invalid="true" aria-describedby="form-error"{{end}}>
+        </div>
+        <div class="field">
+          <label for="key-scope">Scope</label>
+          <select id="key-scope" name="scope"{{if eq .ErrorField "scope"}} aria-invalid="true" aria-describedby="form-error"{{end}}>
+            {{range .Scopes}}<option value="{{.}}"{{if eq . $.Form.Scope}} selected{{end}}>{{.}}</option>{{end}}
+          </select>
+        </div>
+        <div class="field">
+          <label for="key-expires">Expires (optional)</label>
+          <input id="key-expires" name="expires" type="date" value="{{.Form.Expires}}"{{if eq .ErrorField "expires"}} aria-invalid="true" aria-describedby="form-error expires-hint"{{else}} aria-describedby="expires-hint"{{end}}>
+          <span id="expires-hint" class="muted">Ends at the close of that day, UTC.</span>
+        </div>
+        <div class="field">
+          <button type="submit" class="btn btn-primary">Create key</button>
+          <span class="muted">The key is shown once.</span>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="keys-heading">
+    <h2 id="keys-heading">Keys</h2>
+    {{if .ListErr}}<div class="panel-body"><p class="login-error" role="alert">The key list could not be loaded.</p></div>{{else}}
+    <table aria-label="Managed API keys">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Scope</th>
+          <th scope="col">Created</th>
+          <th scope="col">Expires</th>
+          <th scope="col">Last used</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Keys}}
+        <tr>
+          <td>{{.Name}}</td>
+          <td><span class="state-label">{{.Scope}}</span></td>
+          <td><time datetime="{{.CreatedISO}}">{{.Created}}</time></td>
+          <td>{{if .ExpiresISO}}<time datetime="{{.ExpiresISO}}">{{.Expires}}</time>{{else}}<span class="muted">Never expires</span>{{end}}</td>
+          <td>{{if .LastUsedISO}}<time datetime="{{.LastUsedISO}}">{{.LastUsed}}</time>{{else}}<span class="muted">Never</span>{{end}}</td>
+          <td><span class="dot {{.Dot}}" aria-hidden="true"></span>{{.Status}}</td>
+          <td class="right">{{if .Active}}
+            <form method="post" action="/keys/{{.ID}}/revoke">
+              {{if $.CSRF}}<input type="hidden" name="csrf_token" value="{{$.CSRF}}">{{end}}
+              <button type="submit" class="btn" aria-label="Revoke key {{.Name}}">Revoke</button>
+            </form>{{end}}</td>
+        </tr>
+        {{else}}
+        <tr><td colspan="7" class="muted">No managed keys yet. Create one above.</td></tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{end}}
+    <div class="panel-body"><p class="muted">Tokens set with environment variables are not listed here.</p></div>
+  </section>
+
+  <section class="panel" aria-labelledby="audit-heading">
+    <h2 id="audit-heading">Audit log</h2>
+    <div id="audit" aria-live="polite">
+      {{template "keys-audit" .Audit}}
+    </div>
+  </section>
+{{end}}
+{{end}}
+
+{{/* keys-audit is the swappable audit body: presets, retention line and events.
+     Preset links are real links so the log works without htmx. */}}
+{{define "keys-audit"}}
+<div class="panel-body">
+  <p class="presets">Show:
+    {{range .Presets}}<a id="preset-{{.Value}}" href="/keys?since={{.Value}}" hx-get="/keys/audit?since={{.Value}}" hx-target="#audit" hx-swap="innerHTML" hx-push-url="false"{{if .Current}} aria-current="true" class="current"{{end}}>{{.Label}}</a>{{end}}
+  </p>
+  <p class="muted">{{.Retention}}{{if .Limited}} Showing the latest {{.Limit}} events.{{end}}</p>
+</div>
+{{if .Err}}<div class="panel-body"><p class="login-error" role="alert">The audit log could not be loaded.</p></div>{{else}}
+<table aria-label="Key audit events">
+  <thead>
+    <tr>
+      <th scope="col">Time (UTC)</th>
+      <th scope="col">Principal</th>
+      <th scope="col">Action</th>
+      <th scope="col">Key</th>
+      <th scope="col">Request ID</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Events}}
+    <tr>
+      <td><time datetime="{{.AtISO}}">{{.At}}</time></td>
+      <td>{{.Principal}}</td>
+      <td class="mono">{{.Action}}</td>
+      <td class="mono">{{.Key}}</td>
+      <td class="mono">{{.RequestID}}</td>
+    </tr>
+    {{else}}
+    <tr><td colspan="5" class="muted">No key events in this period.</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
+{{end}}

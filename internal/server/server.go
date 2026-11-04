@@ -102,6 +102,10 @@ func (s *Server) Routes() {
 	s.handleFunc("GET /{$}", s.handleOverview)
 	s.handleFunc("GET /flags", s.handleFlagsPage)
 	s.handleFunc("POST /flags/{key}/toggle", s.handleToggleFlag)
+	s.handleFunc("GET /keys", s.handleKeysPage)
+	s.handleFunc("POST /keys", s.handleKeysCreate)
+	s.handleFunc("POST /keys/{id}/revoke", s.handleKeysRevoke)
+	s.handleFunc("GET /keys/audit", s.handleKeysAudit)
 	s.handleFunc("GET /status", s.handleStatusPage)
 	s.handleFunc("POST /status/{key}/check", s.handleCheckComponentUI)
 

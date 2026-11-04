@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/moosequest/console/internal/auth"
 	"github.com/moosequest/console/internal/core"
 )
 
@@ -20,11 +21,21 @@ type pageData struct {
 	// is not cookie-authenticated). Templates send it as X-CSRF-Token via
 	// hx-headers on <body> and as a hidden field on plain forms.
 	CSRF string
+	// CanAdmin is true when the caller may use the admin pages (admin scope, or
+	// auth disabled). It only decides whether the nav link shows; the routes
+	// enforce the scope.
+	CanAdmin bool
+	// NoHistory marks the page hx-history="false" so htmx never snapshots it.
+	NoHistory bool
 }
 
 // page builds the shell data for a dashboard page.
 func (s *Server) page(r *http.Request, title, nav string) pageData {
-	return pageData{Title: title, Nav: nav, Auth: s.authn != nil, CSRF: csrfFrom(r.Context())}
+	p, authed := PrincipalFrom(r.Context())
+	return pageData{
+		Title: title, Nav: nav, Auth: s.authn != nil, CSRF: csrfFrom(r.Context()),
+		CanAdmin: s.authn == nil || (authed && p.Scope.Allows(auth.Admin)),
+	}
 }
 
 // overviewData drives the Overview page: the aggregate health snapshot plus a

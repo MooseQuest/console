@@ -31,6 +31,9 @@ type loginData struct {
 	RetryAfter int
 	// SignedOut is set after a logout.
 	SignedOut bool
+	// KeyRevoked is set after the key behind the session was revoked from the
+	// dashboard (the session is ended with it).
+	KeyRevoked bool
 }
 
 // handleLoginPage renders the login form.
@@ -43,7 +46,10 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	s.renderLogin(w, http.StatusOK, loginData{SignedOut: r.URL.Query().Get("signed_out") == "1"})
+	s.renderLogin(w, http.StatusOK, loginData{
+		SignedOut:  r.URL.Query().Get("signed_out") == "1",
+		KeyRevoked: r.URL.Query().Get("key_revoked") == "1",
+	})
 }
 
 // handleLogin exchanges a token for a session cookie. The token is read from

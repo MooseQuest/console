@@ -214,6 +214,7 @@ func TestCreateKeyValidation(t *testing.T) {
 		{"bad scope", `{"name":"a","scope":"root"}`, 400},
 		{"past expiry", `{"name":"a","scope":"read","expires_at":"` + past + `"}`, 400},
 		{"bad expiry", `{"name":"a","scope":"read","expires_at":"tomorrow"}`, 400},
+		{"zero-time expiry", `{"name":"a","scope":"read","expires_at":"0001-01-01T00:00:00Z"}`, 400},
 		{"unknown field", `{"name":"a","scope":"read","extra":1}`, 400},
 		{"not json", `nope`, 400},
 		{"trailing data", `{"name":"a","scope":"read"}{}`, 400},
@@ -298,7 +299,7 @@ func TestRevokeSelfGuard(t *testing.T) {
 	if c := e.req("DELETE", "/api/auth/keys/"+id, "", tok).Code; c != 409 {
 		t.Fatalf("self revoke = %d, want 409", c)
 	}
-	for _, v := range []string{"?force=1", "?force=TRUE", "?force=", "?force=false"} {
+	for _, v := range []string{"?force=1", "?force=TRUE", "?force=", "?force=false", "?force=true&force=false", "?force=false&force=true", "?force=true&force=true"} {
 		if c := e.req("DELETE", "/api/auth/keys/"+id+v, "", tok).Code; c != 409 {
 			t.Errorf("%s = %d, want 409 (exact value only)", v, c)
 		}

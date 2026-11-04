@@ -156,6 +156,13 @@ func (s *Server) handleCreateKey(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		expires = expires.UTC()
+		// An explicit expiry must be a real future instant. The zero time
+		// (0001-01-01) would otherwise read as "no expiry" downstream and
+		// silently mint a key that never expires.
+		if !expires.After(now) {
+			badRequest(w, "expiry must be in the future")
+			return
+		}
 	}
 	p, name, authed := actor(r)
 	n := auth.NewKey{
@@ -217,7 +224,7 @@ func (s *Server) handleRevokeKey(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.PathValue("id")
 	p, name, authed := actor(r)
-	if authed && p.KeyID != "" && p.KeyID == id && r.URL.Query().Get("force") != "true" {
+	if authed && p.KeyID != "" && p.KeyID == id && !forceRequested(r) {
 		writeJSON(w, http.StatusConflict, errBody{
 			Error: "this is the key authenticating the request; pass ?force=true to revoke it anyway"})
 		return
@@ -282,4 +289,12 @@ func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
 			Action: e.Action, Target: e.Target, RequestID: e.RequestID})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// forceRequested reports whether the caller passed exactly one force
+// parameter whose value is exactly "true". Duplicate or differently cased
+// values never count, so the override cannot depend on parameter order.
+func forceRequested(r *http.Request) bool {
+	v := r.URL.Query()["force"]
+	return len(v) == 1 && v[0] == "true"
 }

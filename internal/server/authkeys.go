@@ -273,11 +273,7 @@ func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
 		}
 		f.Since = t.UTC()
 	}
-	if ret := s.app.Config.AuditRetention(); ret > 0 {
-		if floor := time.Now().UTC().Add(-ret); f.Since.Before(floor) {
-			f.Since = floor
-		}
-	}
+	f = s.floorAudit(f)
 	evs, err := ks.ListAudit(r.Context(), f)
 	if err != nil {
 		s.internalError(w, r, "list audit failed", err)
@@ -289,6 +285,18 @@ func (s *Server) handleListAudit(w http.ResponseWriter, r *http.Request) {
 			Action: e.Action, Target: e.Target, RequestID: e.RequestID})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// floorAudit applies the retention floor to f: when retention is on, Since is
+// raised to now minus the window, so rows awaiting the daily prune are never
+// shown. It is shared by the JSON audit API and the dashboard audit view.
+func (s *Server) floorAudit(f auth.AuditFilter) auth.AuditFilter {
+	if ret := s.app.Config.AuditRetention(); ret > 0 {
+		if floor := time.Now().UTC().Add(-ret); f.Since.Before(floor) {
+			f.Since = floor
+		}
+	}
+	return f
 }
 
 // forceRequested reports whether the caller passed exactly one force

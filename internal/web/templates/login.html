@@ -12,7 +12,8 @@
     <div class="brand"><span class="mark"></span> Console</div>
     <h1>{{.Title}}</h1>
 
-    {{if .SignedOut}}<p class="login-note" role="status">You have been signed out.</p>{{end}}
+    {{if .KeyRevoked}}<p class="note" role="status">Your key was revoked, so you were signed out.</p>
+    {{else if .SignedOut}}<p class="login-note" role="status">You have been signed out.</p>{{end}}
     {{if .Throttled}}
     <p class="login-error" role="alert">Too many failed attempts. Try again in {{.RetryAfter}} seconds.</p>
     {{else if .Error}}

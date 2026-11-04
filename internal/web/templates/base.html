@@ -16,6 +16,7 @@
         <a href="/"        class="{{if eq .Nav "overview"}}active{{end}}">Overview</a>
         <a href="/flags"   class="{{if eq .Nav "flags"}}active{{end}}">Flags</a>
         <a href="/status"  class="{{if eq .Nav "status"}}active{{end}}">Status</a>
+        {{if .CanAdmin}}<a href="/keys"    class="{{if eq .Nav "keys"}}active{{end}}"{{if eq .Nav "keys"}} aria-current="page"{{end}}>API keys</a>{{end}}
       </nav>
       <!-- AGPL-3.0 Appropriate Legal Notices: link to the running version's source. -->
       <footer class="sidebar-foot">
@@ -30,7 +31,7 @@
         {{if .Auth}}<span class="topbar-spacer"></span>
         <form method="post" action="/logout">{{if .CSRF}}<input type="hidden" name="csrf_token" value="{{.CSRF}}">{{end}}<button type="submit" class="btn">Sign out</button></form>{{end}}
       </header>
-      <main class="content">
+      <main class="content"{{if .NoHistory}} hx-history="false"{{end}}>
         {{template "content" .}}
       </main>
     </div>

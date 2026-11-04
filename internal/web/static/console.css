@@ -363,3 +363,67 @@ td code, .mono { font-family: var(--c-mono); font-size: 13px; }
 
 .topbar-spacer { flex: 1; }
 .topbar form { margin: 0; }
+
+/* ---- API keys page ---- */
+
+.btn[hidden] { display: none; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.panel-body { padding: var(--c-4) var(--c-5); }
+.panel-body > :first-child { margin-top: 0; }
+.panel-body > :last-child { margin-bottom: 0; }
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--c-4);
+  align-items: start;
+}
+.field { display: flex; flex-direction: column; gap: var(--c-2); }
+.field label { font-size: 13px; font-weight: 600; color: var(--c-ink-2); }
+.field input, .field select, .panel-body input.secret {
+  padding: var(--c-3);
+  border: 1px solid var(--c-line-2);
+  border-radius: var(--c-r-sm);
+  font: inherit;
+  color: var(--c-ink);
+  background: var(--c-surface);
+}
+.field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: var(--c-danger); }
+
+input:focus-visible, select:focus-visible, a:focus-visible, [tabindex="-1"]:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* One-time key display: one click selects the whole token. */
+.panel-body input.secret { width: 100%; font-family: var(--c-mono); user-select: all; }
+.panel-body label[for="secret"] { display: block; font-size: 13px; font-weight: 600; margin: var(--c-3) 0 var(--c-2); }
+
+/* Success note: ink text with a left border (--c-ok fails contrast as text). */
+.note {
+  margin: 0;
+  color: var(--c-ink);
+  border-left: 4px solid var(--c-anchor);
+  padding: var(--c-2) var(--c-3);
+  font-size: 13px;
+}
+.panel-body.note { font-size: 15px; padding: var(--c-4) var(--c-5); }
+.note-title { margin: 0; padding: 0; border: 0; font-size: 15px; font-weight: 600; }
+
+.actions { display: flex; gap: var(--c-3); align-items: center; }
+.actions form { margin: 0; }
+
+.presets a { margin-right: var(--c-3); text-decoration: underline; }
+.presets a.current { font-weight: 700; text-decoration: none; }

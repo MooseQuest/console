@@ -65,6 +65,12 @@ var routeScopes = map[string]scopeRule{
 	"GET /api/auth/keys":         need(auth.Admin),
 	"DELETE /api/auth/keys/{id}": need(auth.Admin),
 	"GET /api/auth/audit":        need(auth.Admin),
+
+	// admin dashboard pages for the same keys (see keysui.go).
+	"GET /keys":              need(auth.Admin),
+	"POST /keys":             need(auth.Admin),
+	"POST /keys/{id}/revoke": need(auth.Admin),
+	"GET /keys/audit":        need(auth.Admin),
 }
 
 type principalKey struct{}

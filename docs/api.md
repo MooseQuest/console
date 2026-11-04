@@ -70,6 +70,7 @@ scope each endpoint needs. Use an `eval` token in application code (it can only
 evaluate flags), a `read` token for dashboards, monitors and Prometheus, and a
 `write` token for automation that changes state. The dashboard routes (`/`,
 `/flags`, `/status`) need `read`, and its toggle and check actions need `write`.
+The API keys page (`/keys`) needs `admin`.
 
 - `GET /healthz` is the only unauthenticated API route. `GET /api/health` now
   needs `read`; point probes at `/healthz`.
@@ -167,6 +168,38 @@ recorded as `anonymous` and the scope-ceiling check is skipped.
 Browser sessions work too, but unsafe requests (`POST`, `DELETE`) with a session
 cookie must carry the session's CSRF token (`X-CSRF-Token`); bearer-token
 clients need none.
+
+### API keys in the dashboard (`/keys`)
+
+Admins can manage the same keys from the dashboard: the **API keys** page
+(sidebar link, shown only to `admin` sessions) creates, lists and revokes
+managed keys and shows the key audit log. It uses the same engine as the CLI
+and the HTTP API, so the scope ceiling, unique names, future-only expiry and
+the persisted `key.create` / `key.revoke` audit events are identical (the
+acting principal is the session's, with the request ID).
+
+| Method | Path | Scope | Description |
+|---|---|---|---|
+| `GET` | `/keys` | `admin` | Page: create form, key list, audit log (`?since=1h\|24h\|7d\|all`, default `24h`; anything else is `400`) |
+| `POST` | `/keys` | `admin` | Create from the form; `201` page showing the token once |
+| `POST` | `/keys/{id}/revoke` | `admin` | Two steps: without `confirm=1` a confirmation page, with it the revoke (`303` to `/keys?revoked=1`) |
+| `GET` | `/keys/audit?since=` | `admin` | Audit fragment for htmx |
+
+- These are browser forms: every `POST` needs the session CSRF token
+  (`csrf_token` field) like the other dashboard actions. Anonymous browsers
+  are redirected to `/login`; non-admin sessions get `403`.
+- The new token appears only in the body of the create response (never in a
+  URL, cookie or redirect), with `Cache-Control: no-store` and htmx history
+  disabled. Reloading or revisiting the page cannot show it again. An optional
+  Copy button (`/static/keys.js`, same-origin script) helps copy it; the field
+  also selects on click, so the page needs no script.
+- Revoking the key behind your own session asks for an extra confirmation
+  ("Revoke and sign out"), then ends the session and returns to the login page.
+- The audit log shows the effective retention (`CONSOLE_AUDIT_RETENTION_DAYS`,
+  default 90 days, `0` keeps events forever) and the latest 100 events in the
+  chosen window.
+- Without a key store (plugin backends) the page answers `501` with an
+  explanation; env-defined tokens still work and are never listed.
 
 The `curl` examples in the rest of this page omit the header for brevity; add
 `-H "Authorization: Bearer $CONSOLE_TOKEN"` when auth is enabled.

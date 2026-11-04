@@ -1,6 +1,6 @@
 # Dashboard UI for API key management — design
 
-Status: proposed · Issue: #105 · Parent: #79 · Builds on: [auth.md](auth.md) sections 3.2 and 4.4, and #101-#104
+Status: implemented · Issue: #105 · Parent: #79 · Builds on: [auth.md](auth.md) sections 3.2 and 4.4, and #101-#104
 
 ## 1. Scope and invariants
 
@@ -227,9 +227,27 @@ of CSS, optional `keys.js`, tests. If review finds it too large, split into
 (a) keys page (create, list, revoke, self-revoke) then (b) audit fragment, with
 operator sign-off per the grooming.
 
-## 12. Open questions
+## 12. Open questions (resolved)
 
-1. A non-admin typing `/keys` still sees the existing JSON 403. A styled HTML
-   403 is a cross-cutting change; deferred.
-2. Include the optional `keys.js` copy button, or ship zero JS? Recommended:
-   include it; select-on-click is the baseline either way.
+1. A non-admin typing `/keys` keeps the existing JSON 403. A styled HTML 403 is
+   a cross-cutting change; deferred.
+2. `keys.js` is included (the existing `script-src 'self'` allows it; the CSP is
+   unchanged). Select-on-click remains the baseline; the page works without it.
+
+## 13. Implementation notes (deviations and details)
+
+- The audit retention floor moved into `Server.floorAudit`, shared by
+  `/api/auth/audit` and the dashboard view. The default limit constant is shared
+  too.
+- The 4 KiB form cap: the auth middleware already parses the form for the CSRF
+  check (Go bounds that at 10 MB), so `MaxBytesReader` alone cannot enforce the
+  cap on cookie sessions. The handlers also check `Content-Length` and the total
+  decoded field size and answer 413 beyond 4 KiB.
+- Revoke with a failed audit write answers a 200 page with the notice instead of
+  the redirect (the redirect would lose the notice). Self-revoke still redirects
+  to `/login`; the audit failure is only logged there.
+- The audit fragment route answers a small HTML alert (400) for a bad `since`,
+  and the full 501 page when there is no KeyStore.
+- If the key list cannot be loaded right after a successful create, the page
+  still shows the token (it exists nowhere else) with a list-unavailable alert.
+- `hx-history="false"` is set on `<main>` via `pageData.NoHistory`.

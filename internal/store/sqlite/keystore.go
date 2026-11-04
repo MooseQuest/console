@@ -108,7 +108,7 @@ func (s *Store) CreateKey(ctx context.Context, k auth.Key) error {
 	// SQLite reports only one violated constraint, not necessarily the name
 	// one; resolve it so the name always wins.
 	var n int
-	if qerr := s.db.QueryRowContext(ctx,
+	if qerr := s.rdb.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM api_keys WHERE name = ?`, k.Name).Scan(&n); qerr == nil && n > 0 {
 		return auth.ErrDuplicateName
 	}
@@ -117,7 +117,7 @@ func (s *Store) CreateKey(ctx context.Context, k auth.Key) error {
 
 // LookupKey implements auth.KeyStore.
 func (s *Store) LookupKey(ctx context.Context, digest [sha256.Size]byte) (auth.Key, error) {
-	k, err := scanKey(s.db.QueryRowContext(ctx,
+	k, err := scanKey(s.rdb.QueryRowContext(ctx,
 		`SELECT `+keyColumns+` FROM api_keys WHERE digest = ?`, digest[:]))
 	if errors.Is(err, sql.ErrNoRows) {
 		return auth.Key{}, auth.ErrNotFound
@@ -131,7 +131,7 @@ func (s *Store) LookupKey(ctx context.Context, digest [sha256.Size]byte) (auth.K
 // ListKeys implements auth.KeyStore. Digests are zeroed; keys are ordered by
 // creation time, then id.
 func (s *Store) ListKeys(ctx context.Context) ([]auth.Key, error) {
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.rdb.QueryContext(ctx,
 		`SELECT `+keyColumns+` FROM api_keys ORDER BY created_at, id`)
 	if err != nil {
 		return nil, fmt.Errorf("list keys: %w", err)
@@ -170,7 +170,7 @@ func (s *Store) RevokeKey(ctx context.Context, id string) error {
 	}
 	// No row changed: either the id is unknown or the key was already revoked.
 	var exists int
-	if err := s.db.QueryRowContext(ctx,
+	if err := s.rdb.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM api_keys WHERE id = ?`, id).Scan(&exists); err != nil {
 		return fmt.Errorf("revoke key: %w", err)
 	}
@@ -226,7 +226,7 @@ func (s *Store) ListAudit(ctx context.Context, f auth.AuditFilter) ([]auth.Event
 		q.WriteString(` LIMIT ?`)
 		args = append(args, f.Limit)
 	}
-	rows, err := s.db.QueryContext(ctx, q.String(), args...)
+	rows, err := s.rdb.QueryContext(ctx, q.String(), args...)
 	if err != nil {
 		return nil, fmt.Errorf("list audit: %w", err)
 	}

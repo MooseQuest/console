@@ -56,6 +56,35 @@ docker run -d -p 8080:8080 -v console-data:/data \
 
 The container runs as uid 65532, so the token file must be readable by it.
 
+### SQLite files and backups
+
+Console runs SQLite in WAL mode, so next to `console.db` you will see
+`console.db-wal` and `console.db-shm`. They are normal, and the directory
+holding the database (the `/data` volume) must be writable by uid 65532 so
+they can be created; a read-only volume or a read-only database directory
+will not start. WAL also needs a local filesystem: do not put the database on
+NFS or SMB.
+
+Committed writes can live in `-wal` until the next checkpoint, so copying
+only `console.db` of a running server can miss recent changes. Back up
+either by:
+
+- stopping the container and copying all three files (`console.db`,
+  `console.db-wal`, `console.db-shm`), or
+- taking a consistent online snapshot with the `sqlite3` tool from a helper
+  container (the Console image has no shell):
+
+  ```bash
+  docker run --rm -v console-data:/data -v "$PWD:/backup" alpine \
+    sh -c 'apk add --no-cache sqlite >/dev/null &&
+           sqlite3 /data/console.db "VACUUM INTO '"'"'/backup/console-backup.db'"'"'"'
+  ```
+
+  (`sqlite3 /data/console.db ".backup /backup/console-backup.db"` works too.)
+
+Never restore `console.db` alone over an existing `-wal`/`-shm` pair; delete
+the stale sidecar files first.
+
 ## Configuration
 
 The image reads the same `CONSOLE_*` environment variables as the CLI. The

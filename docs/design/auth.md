@@ -85,7 +85,7 @@ for the API (sends a reusable secret in a form clients cannot scope).
 | `eval` | Evaluate a flag | `POST /api/flags/{key}/evaluate` |
 | `read` | All reads, dashboard view, metrics | `GET /api/*`, `GET /`, `/flags`, `/status`, `/metrics` |
 | `write` | Mutations and check triggers | `POST/PUT/DELETE /api/*`, `POST /flags/{key}/toggle`, `POST /status/{key}/check` |
-| `admin` | Key management, future settings | `/api/auth/*` (phase 2) |
+| `admin` | Key management, future settings | `/api/auth/*` (implemented, see 4.8) |
 
 Scopes are hierarchical (`admin` implies all). `POST .../check` is `write`
 because it triggers outbound requests and persists results. The route-to-scope
@@ -291,6 +291,37 @@ the stored value, so a read-modify-write round trip cannot destroy a secret.
 Even `admin` cannot read stored values via the API. A later refinement is a
 provider-declared secret-field list. At-rest encryption remains a separate item
 (`CONSOLE_SECRET_KEY`).
+
+### 4.8 Admin API for managed keys
+
+`POST /api/auth/keys`, `GET /api/auth/keys`, `DELETE /api/auth/keys/{id}` and
+`GET /api/auth/audit` are `admin` routes (user-facing reference:
+`docs/api.md`). They are registered, and listed in `routeScopes`, whether or
+not a `KeyStore` exists; without one the handlers answer 501 after the scope
+check, so the fail-closed table and its coverage test hold in every build.
+
+- **One engine.** Key creation and revocation live in `auth.CreateManagedKey`
+  and `auth.RevokeManagedKey` (token generation, digest-only storage, audit
+  event). The CLI, this API and the dashboard UI (#105) call them instead of
+  re-implementing the logic.
+- **Scope ceiling.** The create handler passes the caller's scope as a ceiling;
+  a requested scope above it is `403`. With auth disabled there is no
+  principal, so the ceiling is skipped and the audit principal is `anonymous`.
+- **Token handling.** The plaintext token exists only in the 201 response
+  (`Cache-Control: no-store` on all four routes); lists and audit rows carry no
+  token or digest, and nothing token-derived is logged. If the audit write fails
+  after the key is stored, the token is still returned and the failure is logged
+  with the request ID.
+- **Self-lockout guard.** Revoking `Principal.KeyID` of the caller (which also
+  covers a dashboard session backed by that key) is `409` unless `?force=true`.
+  Env tokens have no `KeyID`, so the guard never applies to them.
+- **CSRF.** Unchanged: the routes sit behind the same middleware, so
+  cookie-authenticated `POST`/`DELETE` need the session CSRF token and bearer
+  clients are exempt.
+- **Audit.** Events record `Principal.Name`, the key id as target and the request
+  ID (`server.RequestID`). `GET /api/auth/audit` floors `since` at now minus
+  the retention window so rows awaiting the daily prune never show; `limit`
+  defaults to 100, max 1000.
 
 ## 5. Data model and migration
 

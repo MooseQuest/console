@@ -2,9 +2,6 @@ package cli
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -109,15 +106,6 @@ func parseDuration(s string) (time.Duration, error) {
 	return d, nil
 }
 
-func parseScope(s string) (auth.Scope, error) {
-	for _, sc := range []auth.Scope{auth.Eval, auth.Read, auth.Write, auth.Admin} {
-		if sc.String() == strings.ToLower(strings.TrimSpace(s)) {
-			return sc, nil
-		}
-	}
-	return 0, fmt.Errorf("invalid scope %q: must be eval, read, write or admin", s)
-}
-
 // newFlagSet returns a quiet FlagSet; parse failures become usage errors.
 func newFlagSet(name string) *flag.FlagSet {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
@@ -169,15 +157,6 @@ func openKeys(env authEnv) (auth.KeyStore, error) {
 	return ks, nil
 }
 
-// randomID returns a random 128-bit hex identifier.
-func randomID() (string, error) {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", fmt.Errorf("generate id: %w", err)
-	}
-	return hex.EncodeToString(b[:]), nil
-}
-
 func keyCreate(ctx context.Context, args []string, out io.Writer, env authEnv) error {
 	name, rest := leadingArg(args)
 	fs := newFlagSet("auth key create")
@@ -197,7 +176,7 @@ func keyCreate(ctx context.Context, args []string, out io.Writer, env authEnv) e
 	if *scopeS == "" {
 		return usagef("auth key create: -scope is required (eval, read, write or admin)")
 	}
-	scope, err := parseScope(*scopeS)
+	scope, err := auth.ParseScope(*scopeS)
 	if err != nil {
 		return usagef("%v", err)
 	}
@@ -217,29 +196,20 @@ func keyCreate(ctx context.Context, args []string, out io.Writer, env authEnv) e
 	if err != nil {
 		return err
 	}
-	tok, err := auth.GenerateToken()
+	res, err := auth.CreateManagedKey(ctx, ks, auth.NewKey{Name: name, Scope: scope, ExpiresAt: expires, Principal: cliPrincipal, Now: now})
 	if err != nil {
-		return err
-	}
-	id, err := randomID()
-	if err != nil {
-		return err
-	}
-	evID, err := randomID()
-	if err != nil {
-		return err
-	}
-	k := auth.Key{ID: id, Name: name, Digest: sha256.Sum256([]byte(tok)), Scope: scope, CreatedAt: now, ExpiresAt: expires}
-	if err := ks.CreateKey(ctx, k); err != nil {
-		if errors.Is(err, auth.ErrDuplicateName) {
+		switch {
+		case errors.Is(err, auth.ErrDuplicateName):
 			return fmt.Errorf("a key named %q already exists", name)
+		case errors.Is(err, auth.ErrInvalidKey):
+			return usagef("%v", err)
 		}
 		return fmt.Errorf("create key: %w", err)
 	}
 	// The key exists from here on, so the token is always shown even if the
 	// audit write fails; that failure is then reported.
-	auditErr := ks.AppendAudit(ctx, auth.Event{ID: evID, At: now, Principal: cliPrincipal, Action: auth.ActionKeyCreate, Target: id})
-	fmt.Fprintln(out, tok)
+	id, auditErr := res.Key.ID, res.AuditErr
+	fmt.Fprintln(out, res.Token)
 	env.note("Created key %q (id %s, scope %s)", name, id, scope)
 	if !expires.IsZero() {
 		env.note(", expires %s", expires.Format(time.RFC3339))
@@ -286,7 +256,8 @@ func keyRevoke(ctx context.Context, args []string, out io.Writer, env authEnv) e
 	if found == nil {
 		return fmt.Errorf("no key with id or name %q", ref)
 	}
-	if err := ks.RevokeKey(ctx, found.ID); err != nil {
+	auditErr, err := auth.RevokeManagedKey(ctx, ks, found.ID, cliPrincipal, "", env.now())
+	if err != nil {
 		switch {
 		case errors.Is(err, auth.ErrAlreadyRevoked):
 			return fmt.Errorf("key %q is already revoked", found.Name)
@@ -295,12 +266,8 @@ func keyRevoke(ctx context.Context, args []string, out io.Writer, env authEnv) e
 		}
 		return fmt.Errorf("revoke key: %w", err)
 	}
-	evID, err := randomID()
-	if err != nil {
-		return err
-	}
-	if err := ks.AppendAudit(ctx, auth.Event{ID: evID, At: env.now(), Principal: cliPrincipal, Action: auth.ActionKeyRevoke, Target: found.ID}); err != nil {
-		return fmt.Errorf("key revoked, but recording the audit event failed: %w", err)
+	if auditErr != nil {
+		return fmt.Errorf("key revoked, but recording the audit event failed: %w", auditErr)
 	}
 	fmt.Fprintf(out, "Revoked key %q (id %s).\n", found.Name, found.ID)
 	return nil
@@ -509,7 +476,7 @@ func auditPrune(ctx context.Context, args []string, out io.Writer, env authEnv) 
 	if err != nil {
 		return fmt.Errorf("prune audit: %w", err)
 	}
-	id, err := randomID()
+	id, err := auth.NewID()
 	if err != nil {
 		return err
 	}

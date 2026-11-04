@@ -48,6 +48,10 @@ HTTP for now).
 | `PUT` | `/api/components/{key}` | `write` | Update a component |
 | `DELETE` | `/api/components/{key}` | `write` | Delete a component |
 | `POST` | `/api/components/{key}/check` | `write` | Run a check now |
+| `POST` | `/api/auth/keys` | `admin` | Create a managed key (token shown once) |
+| `GET` | `/api/auth/keys` | `admin` | List managed keys |
+| `DELETE` | `/api/auth/keys/{id}` | `admin` | Revoke a managed key |
+| `GET` | `/api/auth/audit` | `admin` | List key audit events |
 
 ## Authentication and scopes
 
@@ -108,6 +112,62 @@ console auth audit prune [-older-than 90d | -all]
 - Exit codes: `2` for usage errors, `1` for runtime errors (unknown key,
   already revoked, store failures).
 
+### Managed keys over HTTP (`/api/auth/*`)
+
+The same keys can be managed over HTTP with an `admin` token. All four routes
+need `admin`, are never cacheable (`Cache-Control: no-store`), and answer
+`501 Not Implemented` when the storage backend has no key store (plugin
+stores); use the `CONSOLE_*_TOKENS` variables there. Env-defined tokens are not
+keys: they are not listed and cannot be revoked here.
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/auth/keys` | Create a key; the token is returned once |
+| `GET` | `/api/auth/keys` | List keys (no tokens, no digests) |
+| `DELETE` | `/api/auth/keys/{id}` | Revoke a key |
+| `GET` | `/api/auth/audit` | List key audit events, newest first |
+
+**Create.** Body `{"name": "ci-bot", "scope": "read", "expires_at": "2027-01-01T00:00:00Z"}`;
+`expires_at` is optional, RFC3339 and must be in the future. The body is
+capped at 4 KiB (`413` beyond) and unknown fields are rejected.
+
+```bash
+curl -sX POST localhost:8080/api/auth/keys -H "Authorization: Bearer $CONSOLE_TOKEN" \
+  -d '{"name":"ci-bot","scope":"read"}'
+# → 201 {"id":"…","name":"ci-bot","scope":"read","status":"active",
+#        "created_at":"…","expires_at":null,"last_used_at":null,"revoked_at":null,
+#        "key":"csk_…"}
+```
+
+`key` is the plaintext token. It appears only in this response; only its
+SHA-256 digest is stored. Statuses: `400` (missing or oversized name, invalid
+scope, past or malformed `expires_at`, bad JSON), `403` (the requested scope is
+above the caller's own: a caller can never mint a key more powerful than
+itself), `409` (name already in use), `413`.
+
+**List.** `200` with an array of `{id, name, scope, status, created_at,
+expires_at, last_used_at, revoked_at}`; `status` is `active`, `expired` or
+`revoked`.
+
+**Revoke.** `204` on success, `404` for an unknown id, `409` if already
+revoked. Revocation applies on the next request. Revoking the key that
+authenticated the request (including a dashboard session signed in with it) is
+refused with `409` to avoid locking yourself out; add `?force=true` (exact
+value) to override.
+
+**Audit.** `GET /api/auth/audit?since=<RFC3339>&limit=<n>` returns `[{id, at,
+principal, action, target, request_id}]`. `limit` defaults to 100 and is at most
+1000 (`400` otherwise). When `CONSOLE_AUDIT_RETENTION_DAYS` is above 0, `since`
+is floored at now minus the retention window, so events awaiting the daily
+prune are never returned. `request_id` is the `X-Request-Id` of the request that
+caused the event (empty for CLI actions). The acting principal is the caller's
+audit name; with auth disabled (loopback) there is no principal, so events are
+recorded as `anonymous` and the scope-ceiling check is skipped.
+
+Browser sessions work too, but unsafe requests (`POST`, `DELETE`) with a session
+cookie must carry the session's CSRF token (`X-CSRF-Token`); bearer-token
+clients need none.
+
 The `curl` examples in the rest of this page omit the header for brevity; add
 `-H "Authorization: Bearer $CONSOLE_TOKEN"` when auth is enabled.
 
@@ -120,13 +180,15 @@ Errors return a JSON body `{"error": "..."}` with one of these status codes:
 
 | Status | When |
 |---|---|
-| `400 Bad Request` | malformed JSON body |
+| `400 Bad Request` | malformed JSON body or invalid parameter |
 | `401 Unauthorized` | missing or invalid token (`WWW-Authenticate: Bearer`) |
 | `403 Forbidden` | valid token, insufficient scope (or a failed CSRF check) |
 | `429 Too Many Requests` | login throttled (`Retry-After`), `/login` only |
 | `404 Not Found` | the addressed key doesn't exist |
 | `409 Conflict` | creating a key that already exists |
+| `413 Content Too Large` | key-create body above 4 KiB |
 | `500 Internal Server Error` | unexpected backend failure |
+| `501 Not Implemented` | `/api/auth/*` on a backend with no key store |
 
 ```jsonc
 { "error": "flag \"unknown-key\" not found" }

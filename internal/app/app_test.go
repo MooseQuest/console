@@ -58,10 +58,14 @@ func TestNewWiresAuth(t *testing.T) {
 			if (a.Auth != nil) != tc.want {
 				t.Fatalf("Auth set = %v, want %v", a.Auth != nil, tc.want)
 			}
-			// The SQLite store does not implement auth.KeyStore yet, so the
-			// authenticator stays the plain static one.
-			if _, isStatic := a.Auth.(*auth.Static); tc.want && !isStatic {
-				t.Fatalf("Auth = %T, want *auth.Static without a KeyStore", a.Auth)
+			// The SQLite store implements auth.KeyStore (detected before
+			// obs.WrapStore hides it), so managed keys chain behind the
+			// static tokens.
+			if a.Keys == nil {
+				t.Fatal("App.Keys is nil for the SQLite store")
+			}
+			if _, isChain := a.Auth.(*auth.Chain); tc.want && !isChain {
+				t.Fatalf("Auth = %T, want *auth.Chain with a KeyStore", a.Auth)
 			}
 		})
 	}

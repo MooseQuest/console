@@ -39,6 +39,9 @@ type App struct {
 	// Auth authenticates API requests. Nil when auth is not enabled (no tokens
 	// configured, or CONSOLE_AUTH=disabled); the server then runs open.
 	Auth auth.Authenticator
+	// Keys is the managed-key and audit store. Nil when the backend does not
+	// implement auth.KeyStore (e.g. a plugin store).
+	Keys auth.KeyStore
 
 	// closers tears down loaded plugin subprocesses (notifiers) on Close.
 	closers []func() error
@@ -105,6 +108,7 @@ func New(ctx context.Context, cfg config.Config, opts ...Option) (*App, error) {
 		Flags:  flags.New(st),
 		Status: status.New(st, st, obs.WrapProvider(&status.HTTPProvider{}, rec)),
 		Notify: notify.NewDispatcher(),
+		Keys:   keyStore,
 	}
 
 	if cfg.AuthEnabled() {

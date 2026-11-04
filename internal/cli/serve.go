@@ -47,6 +47,15 @@ func (c *cli) cmdServe(args []string, cfg config.Config) error {
 	}
 	defer a.Close()
 
+	// Audit retention housekeeping runs only here, in the long-lived server.
+	// Wait for it before the store closes (defers run last-in first-out).
+	pruneDone := make(chan struct{})
+	go func() {
+		defer close(pruneDone)
+		a.RunAuditPruner(ctx)
+	}()
+	defer func() { cancel(); <-pruneDone }()
+
 	// Opt-in pprof listener (CONSOLE_PPROF_ADDR). A refused or unbindable
 	// address is a startup error.
 	pprofAddr, pprofRemote := pprofsrv.FromEnv()

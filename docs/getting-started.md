@@ -55,6 +55,7 @@ them. Sensible defaults mean you usually need none of these to start.
 |---|---|---|
 | `CONSOLE_ADDR` | `127.0.0.1:8080` | HTTP listen address (loopback) |
 | `CONSOLE_DB` | `console.db` | SQLite path / DSN (`""` for in-memory) |
+| `CONSOLE_AUDIT_RETENTION_DAYS` | `90` | Days of API-key audit events `serve` keeps; `0` = forever; negative or non-numeric stops startup |
 | `CONSOLE_LLM_PLUGIN` | — | Path to an LLM plugin binary for AI-Assisted onboarding; unset = AI mode off |
 | `CONSOLE_MODEL` | provider default | LLM model override |
 | `ANTHROPIC_API_KEY` | — | API key for the Anthropic provider |

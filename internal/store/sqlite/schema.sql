@@ -36,3 +36,31 @@ CREATE TABLE IF NOT EXISTS checks (
 
 CREATE INDEX IF NOT EXISTS idx_checks_component_checked_at
 	ON checks (component, checked_at DESC, id DESC);
+
+-- Managed API keys and the key-management audit trail (docs/design/auth.md
+-- section 5). These statements are idempotent, so they run on every open and
+-- are a no-op on a database that already has them; older binaries ignore the
+-- extra tables. Only the SHA-256 digest of a token is stored. Timestamps use
+-- a fixed-width UTC format (see fmtKeyTime) so TEXT comparison and ORDER BY
+-- agree with chronological order.
+CREATE TABLE IF NOT EXISTS api_keys (
+	id           TEXT PRIMARY KEY,
+	name         TEXT NOT NULL UNIQUE,
+	digest       BLOB NOT NULL UNIQUE, -- sha256 of the token
+	scope        TEXT NOT NULL,        -- eval|read|write|admin
+	created_at   TEXT NOT NULL,
+	expires_at   TEXT,
+	last_used_at TEXT,
+	revoked_at   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_events (
+	id         TEXT PRIMARY KEY,
+	at         TEXT NOT NULL,
+	principal  TEXT NOT NULL,
+	action     TEXT NOT NULL,
+	target     TEXT NOT NULL,
+	request_id TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS audit_events_at ON audit_events (at);

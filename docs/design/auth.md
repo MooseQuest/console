@@ -152,8 +152,27 @@ type KeyStore interface {
     LookupKey(ctx context.Context, digest [32]byte) (Key, error)
     ListKeys(ctx context.Context) ([]Key, error)     // never returns digests as secrets
     RevokeKey(ctx context.Context, id string) error
+    TouchKey(ctx context.Context, id string, at time.Time) error // last_used_at
+
+    AppendAudit(ctx context.Context, e Event) error
+    ListAudit(ctx context.Context, f AuditFilter) ([]Event, error) // newest first
+    PruneAudit(ctx context.Context, before time.Time) (int, error)
 }
 ```
+
+`Principal.KeyID` carries the id of the managed key that authenticated a request
+(empty for env-defined tokens); `TouchKey` and the audit `target` use it.
+`TouchKey` records `last_used_at` and returns `ErrNotFound` for an unknown id.
+`CreateKey` returns `ErrDuplicateName` for a taken name and `ErrDuplicateKey`
+for a taken id or digest (the name check wins when both collide); `RevokeKey`
+returns `ErrNotFound` / `ErrAlreadyRevoked`. Audit methods: `AppendAudit` stores
+one `Event` (id, time, principal, action `key.create` | `key.revoke` |
+`audit.prune`, target key id, and an optional `RequestID` correlating the event
+with the request that caused it); `ListAudit` returns events newest first,
+filtered by an inclusive `Since` and capped by `Limit` (zero or negative = no
+cap); `PruneAudit` deletes events strictly older than `before` and returns the
+count. The SQLite store and `auth.MemKeyStore` both pass the shared contract
+suite in `internal/auth/authtest`.
 
 Keeping it off `store.Store` avoids a plugin protocol change for Postgres; the
 Postgres plugin can implement it later via an additive RPC.
@@ -291,9 +310,15 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 CREATE TABLE IF NOT EXISTS audit_events (
   id TEXT PRIMARY KEY, at TIMESTAMP NOT NULL, principal TEXT NOT NULL,
-  action TEXT NOT NULL, target TEXT NOT NULL
+  action TEXT NOT NULL, target TEXT NOT NULL,
+  request_id TEXT NOT NULL DEFAULT ''   -- optional request correlation
 );
+CREATE INDEX IF NOT EXISTS audit_events_at ON audit_events(at);
 ```
+
+(As implemented, timestamps are fixed-width UTC `TEXT` so string comparison is
+chronological, and the statements live in the embedded `schema.sql`, which runs
+on every open.)
 
 Rollback: older binaries ignore the extra tables; dropping them loses only keys.
 
@@ -344,8 +369,12 @@ leaving a window in which exposed instances stay open.
 - **PII:** none collected. Token names are operator-chosen labels; remote
   addresses appear only in operator-controlled logs.
 - **Retention/deletion:** sessions in memory only; `api_keys` rows deleted on
-  revoke+purge; audit events retained until the operator prunes (default
-  unbounded, `console auth audit prune` proposed in phase 2). No data-subject
+  revoke+purge; audit events are pruned automatically after
+  `CONSOLE_AUDIT_RETENTION_DAYS` days (default **90**; `0` keeps them forever;
+  a negative or non-numeric value stops startup). The prune loop runs only in
+  `console serve`, once at startup and then every 24 hours, is skipped when
+  retention is `0`, and records an `audit.prune` event on each pass. The
+  effective retention is logged at startup. No data-subject
   records exist to erase.
 - **Audit:** principal name, scope, route pattern, status, request ID. No
   tokens, no request bodies, no config values.

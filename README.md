@@ -245,6 +245,7 @@ Core:
 | `CONSOLE_DB` | `console.db` | SQLite path / DSN (`""` for in-memory) |
 | `CONSOLE_ADMIN_TOKENS` | *(unset)* | API tokens by scope: also `CONSOLE_WRITE_TOKENS`, `CONSOLE_READ_TOKENS`, `CONSOLE_EVAL_TOKENS`; each has a `_FILE` form. Generate with `console auth token`. Required to bind off loopback. |
 | `CONSOLE_COOKIE_SECURE` | `auto` | Dashboard session cookie `Secure` flag: `auto` or `always` |
+| `CONSOLE_AUDIT_RETENTION_DAYS` | `90` | Days of API-key audit events `console serve` keeps; `0` keeps them forever; negative or non-numeric stops startup |
 
 Plugin selection (each points at a `console-plugin-*` binary; unset = built-in default):
 

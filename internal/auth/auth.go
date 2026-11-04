@@ -64,6 +64,9 @@ type Principal struct {
 	// Name is an audit label (scope-N plus a digest prefix), never the token.
 	Name  string
 	Scope Scope
+	// KeyID is the id of the managed key backing the request. It is empty for
+	// env-defined tokens.
+	KeyID string
 }
 
 // Authenticator turns a request into a Principal or ErrUnauthenticated.

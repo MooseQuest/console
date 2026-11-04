@@ -91,6 +91,10 @@ func New(ctx context.Context, cfg config.Config, opts ...Option) (*App, error) {
 		return nil, fmt.Errorf("open store: %w", err)
 	}
 
+	// Detect the optional key store on the concrete backend: obs.WrapStore
+	// only forwards store.Store and would hide it.
+	keyStore, _ := st.(auth.KeyStore)
+
 	rec := o.recorder(cfg)
 	st = obs.WrapStore(st, rec)
 
@@ -104,12 +108,19 @@ func New(ctx context.Context, cfg config.Config, opts ...Option) (*App, error) {
 	}
 
 	if cfg.AuthEnabled() {
-		a.Auth = auth.NewStatic(map[auth.Scope][]string{
+		static := auth.NewStatic(map[auth.Scope][]string{
 			auth.Admin: cfg.Tokens.Admin,
 			auth.Write: cfg.Tokens.Write,
 			auth.Read:  cfg.Tokens.Read,
 			auth.Eval:  cfg.Tokens.Eval,
 		})
+		// Managed keys are optional: only stores implementing auth.KeyStore
+		// (not plugin stores) add them behind the static tokens.
+		if keyStore != nil {
+			a.Auth = auth.NewChain(static, keyStore)
+		} else {
+			a.Auth = static
+		}
 	}
 
 	a.Flags.SetRecorder(rec)

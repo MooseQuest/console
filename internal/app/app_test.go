@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/moosequest/console/internal/auth"
 	"github.com/moosequest/console/internal/config"
 	"github.com/moosequest/console/internal/obs"
 )
@@ -56,6 +57,11 @@ func TestNewWiresAuth(t *testing.T) {
 			defer a.Close()
 			if (a.Auth != nil) != tc.want {
 				t.Fatalf("Auth set = %v, want %v", a.Auth != nil, tc.want)
+			}
+			// The SQLite store does not implement auth.KeyStore yet, so the
+			// authenticator stays the plain static one.
+			if _, isStatic := a.Auth.(*auth.Static); tc.want && !isStatic {
+				t.Fatalf("Auth = %T, want *auth.Static without a KeyStore", a.Auth)
 			}
 		})
 	}

@@ -69,7 +69,7 @@ func TestParseDuration(t *testing.T) {
 			t.Errorf("parseDuration(%q) = %v, %v; want %v", in, got, err, want)
 		}
 	}
-	for _, in := range []string{"", "d", "xd", "1.5d", "abc", "10"} {
+	for _, in := range []string{"", "d", "xd", "1.5d", "abc", "10", "2147483647d", "106752d", "-106752d", "9223372036854775807d"} {
 		if _, err := parseDuration(in); err == nil {
 			t.Errorf("parseDuration(%q): want error", in)
 		}

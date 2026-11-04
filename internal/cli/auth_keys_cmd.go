@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -89,9 +90,15 @@ audit.prune event whose target is the number of events deleted.
 func parseDuration(s string) (time.Duration, error) {
 	s = strings.TrimSpace(s)
 	if n, ok := strings.CutSuffix(s, "d"); ok {
-		days, err := strconv.ParseInt(n, 10, 32)
+		days, err := strconv.ParseInt(n, 10, 64)
 		if err != nil {
 			return 0, fmt.Errorf("invalid duration %q (use e.g. 36h or 90d)", s)
+		}
+		// Reject day counts whose duration would overflow int64 nanoseconds
+		// (it would wrap to an arbitrary, possibly positive, value).
+		const maxDays = int64(math.MaxInt64 / (24 * time.Hour))
+		if days > maxDays || days < -maxDays {
+			return 0, fmt.Errorf("invalid duration %q: too large", s)
 		}
 		return time.Duration(days) * 24 * time.Hour, nil
 	}

@@ -90,6 +90,6 @@ func runAuth(ctx context.Context, args []string, out io.Writer, env authEnv) err
 	case "audit":
 		return runAuthAudit(ctx, args[1:], out, env)
 	default:
-		return fmt.Errorf("unknown auth subcommand %q (run \"console auth help\")", args[0])
+		return usagef("unknown auth subcommand %q (run \"console auth help\")", args[0])
 	}
 }

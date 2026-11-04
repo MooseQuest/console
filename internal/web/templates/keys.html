@@ -133,7 +133,7 @@
 {{define "keys-audit"}}
 <div class="panel-body">
   <p class="presets">Show:
-    {{range .Presets}}<a href="/keys?since={{.Value}}" hx-get="/keys/audit?since={{.Value}}" hx-target="#audit" hx-swap="innerHTML" hx-push-url="false"{{if .Current}} aria-current="true" class="current"{{end}}>{{.Label}}</a>{{end}}
+    {{range .Presets}}<a id="preset-{{.Value}}" href="/keys?since={{.Value}}" hx-get="/keys/audit?since={{.Value}}" hx-target="#audit" hx-swap="innerHTML" hx-push-url="false"{{if .Current}} aria-current="true" class="current"{{end}}>{{.Label}}</a>{{end}}
   </p>
   <p class="muted">{{.Retention}}{{if .Limited}} Showing the latest {{.Limit}} events.{{end}}</p>
 </div>

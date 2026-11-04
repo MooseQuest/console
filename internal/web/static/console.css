@@ -394,7 +394,7 @@ td code, .mono { font-family: var(--c-mono); font-size: 13px; }
 .field label { font-size: 13px; font-weight: 600; color: var(--c-ink-2); }
 .field input, .field select, .panel-body input.secret {
   padding: var(--c-3);
-  border: 1px solid var(--c-line-2);
+  border: 1px solid var(--c-muted); /* 4.8:1; --c-line-2 is 1.5:1, below the 3:1 non-text minimum */
   border-radius: var(--c-r-sm);
   font: inherit;
   color: var(--c-ink);
@@ -425,5 +425,6 @@ input:focus-visible, select:focus-visible, a:focus-visible, [tabindex="-1"]:focu
 .actions { display: flex; gap: var(--c-3); align-items: center; }
 .actions form { margin: 0; }
 
+.panel-body p a:not(.btn) { text-decoration: underline; }
 .presets a { margin-right: var(--c-3); text-decoration: underline; }
 .presets a.current { font-weight: 700; text-decoration: none; }

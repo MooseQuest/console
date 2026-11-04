@@ -23,11 +23,18 @@ import (
 //go:embed schema.sql
 var schema string
 
-// Store is a SQLite-backed store.Store. It is safe for concurrent use: the
-// underlying *sql.DB serializes access and the busy_timeout pragma absorbs
-// transient lock contention.
+// Store is a SQLite-backed store.Store. It is safe for concurrent use.
+//
+// For a file-backed database the Store keeps two connection pools over the
+// same file: db is the writer pool, capped at one connection so every write
+// is serialized in-process (SQLite allows a single writer anyway, and a
+// contended write lock can return SQLITE_BUSY immediately, ignoring
+// busy_timeout, when two connections race to upgrade a read lock); rdb is a
+// read-only pool that runs concurrently with the writer under WAL. For an
+// in-memory database both fields are the same single-connection pool.
 type Store struct {
-	db *sql.DB
+	db  *sql.DB // writes (and schema); one connection
+	rdb *sql.DB // reads; may be the same pool as db
 }
 
 // compile-time assertion that *Store satisfies the full interface.
@@ -40,34 +47,77 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	if dsn == "" {
 		dsn = "file::memory:?cache=shared"
 	}
-	dsn = withPragmas(dsn)
+	mem := strings.Contains(dsn, ":memory:")
 
+	if mem {
+		// An in-memory database lives only as long as a connection is held;
+		// for a shared-cache memory DB a single connection keeps the schema
+		// alive for the lifetime of the Store and serializes all access.
+		db, err := openPool(ctx, withPragmas(dsn, false))
+		if err != nil {
+			return nil, err
+		}
+		db.SetMaxOpenConns(1)
+		if err := migrate(ctx, db); err != nil {
+			db.Close()
+			return nil, err
+		}
+		return &Store{db: db, rdb: db}, nil
+	}
+
+	// Writer: one connection, WAL, so writes queue in-process rather than
+	// racing for the SQLite file lock.
+	db, err := openPool(ctx, withPragmas(dsn, false))
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(1)
+	if err := migrate(ctx, db); err != nil {
+		db.Close()
+		return nil, err
+	}
+	// Reader: a separate pool; under WAL readers never block on, or are
+	// blocked by, the writer. query_only guards against stray writes.
+	rdb, err := openPool(ctx, withPragmas(dsn, true))
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	return &Store{db: db, rdb: rdb}, nil
+}
+
+func openPool(ctx context.Context, dsn string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	// An in-memory database lives only as long as a connection is held; for a
-	// shared-cache memory DB, capping the pool to one connection keeps the
-	// schema alive for the lifetime of the Store.
-	if strings.Contains(dsn, ":memory:") {
-		db.SetMaxOpenConns(1)
-	}
-
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
-	if _, err := db.ExecContext(ctx, schema); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("migrate schema: %w", err)
-	}
-	return &Store{db: db}, nil
+	return db, nil
 }
 
-// withPragmas appends the busy_timeout and foreign_keys pragmas to dsn,
-// preserving any existing query string.
-func withPragmas(dsn string) string {
+func migrate(ctx context.Context, db *sql.DB) error {
+	if _, err := db.ExecContext(ctx, schema); err != nil {
+		return fmt.Errorf("migrate schema: %w", err)
+	}
+	return nil
+}
+
+// withPragmas appends the per-connection pragmas to dsn, preserving any
+// existing query string. modernc applies each _pragma to every connection the
+// pool opens, so these hold for the whole pool. File databases use WAL with
+// synchronous=NORMAL (durable across application crashes; WAL is the
+// documented pairing). In-memory databases ignore journal_mode.
+func withPragmas(dsn string, readOnly bool) string {
 	pragmas := "_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+	if !strings.Contains(dsn, ":memory:") {
+		pragmas += "&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
+	}
+	if readOnly {
+		pragmas += "&_pragma=query_only(1)"
+	}
 	if strings.Contains(dsn, "?") {
 		return dsn + "&" + pragmas
 	}
@@ -76,12 +126,21 @@ func withPragmas(dsn string) string {
 
 // Ping verifies the backend is reachable.
 func (s *Store) Ping(ctx context.Context) error {
-	return s.db.PingContext(ctx)
+	if err := s.db.PingContext(ctx); err != nil {
+		return err
+	}
+	return s.rdb.PingContext(ctx)
 }
 
 // Close releases the underlying database handle.
 func (s *Store) Close() error {
-	return s.db.Close()
+	err := s.db.Close()
+	if s.rdb != s.db {
+		if rerr := s.rdb.Close(); err == nil {
+			err = rerr
+		}
+	}
+	return err
 }
 
 // isUnique reports whether err is a primary-key/unique constraint violation.
@@ -143,7 +202,7 @@ func (s *Store) CreateFlag(ctx context.Context, f core.Flag) error {
 
 // GetFlag returns the flag with the given key, or core.ErrNotFound.
 func (s *Store) GetFlag(ctx context.Context, key string) (core.Flag, error) {
-	row := s.db.QueryRowContext(ctx,
+	row := s.rdb.QueryRowContext(ctx,
 		`SELECT key, description, enabled, scope, rollout, variants, cohort, experiment, created_at, updated_at
 		 FROM flags WHERE key = ?`, key)
 	f, err := scanFlag(row)
@@ -158,7 +217,7 @@ func (s *Store) GetFlag(ctx context.Context, key string) (core.Flag, error) {
 
 // ListFlags returns all flags ordered by key.
 func (s *Store) ListFlags(ctx context.Context) ([]core.Flag, error) {
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.rdb.QueryContext(ctx,
 		`SELECT key, description, enabled, scope, rollout, variants, cohort, experiment, created_at, updated_at
 		 FROM flags ORDER BY key`)
 	if err != nil {
@@ -288,7 +347,7 @@ func (s *Store) CreateComponent(ctx context.Context, c core.Component) error {
 
 // GetComponent returns the component with the given key, or core.ErrNotFound.
 func (s *Store) GetComponent(ctx context.Context, key string) (core.Component, error) {
-	row := s.db.QueryRowContext(ctx,
+	row := s.rdb.QueryRowContext(ctx,
 		`SELECT key, name, description, provider, config, created_at, updated_at
 		 FROM components WHERE key = ?`, key)
 	c, err := scanComponent(row)
@@ -303,7 +362,7 @@ func (s *Store) GetComponent(ctx context.Context, key string) (core.Component, e
 
 // ListComponents returns all components ordered by key.
 func (s *Store) ListComponents(ctx context.Context) ([]core.Component, error) {
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.rdb.QueryContext(ctx,
 		`SELECT key, name, description, provider, config, created_at, updated_at
 		 FROM components ORDER BY key`)
 	if err != nil {
@@ -418,7 +477,7 @@ func (s *Store) RecordCheck(ctx context.Context, c core.Check) error {
 // LatestCheck returns the most recent check for the given component, or
 // core.ErrNotFound if it has none.
 func (s *Store) LatestCheck(ctx context.Context, component string) (core.Check, error) {
-	row := s.db.QueryRowContext(ctx,
+	row := s.rdb.QueryRowContext(ctx,
 		`SELECT component, state, message, latency, checked_at
 		 FROM checks WHERE component = ?
 		 ORDER BY checked_at DESC, id DESC LIMIT 1`, component)
@@ -437,7 +496,7 @@ func (s *Store) LatestCheck(ctx context.Context, component string) (core.Check, 
 func (s *Store) LatestChecks(ctx context.Context) ([]core.Check, error) {
 	// Pick the row with the greatest id among the rows tied for the latest
 	// checked_at per component; id is monotonic so it breaks ties correctly.
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.rdb.QueryContext(ctx,
 		`SELECT c.component, c.state, c.message, c.latency, c.checked_at
 		 FROM checks c
 		 JOIN (

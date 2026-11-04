@@ -24,11 +24,12 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
-      # Full cross-platform matrix on pushes to main; Linux-only on PRs to keep
-      # them fast and cheap (macOS bills at 10x, Windows 2x, if ever private).
-      # main is the merge target, so every change still gets full coverage there.
+      # Full cross-platform matrix on every PR and push. A Linux-only PR matrix
+      # let a Windows-only SQLITE_BUSY failure merge and turn main red. The repo
+      # is public (free runners); if it ever goes private, revisit the cost of
+      # macOS (10x) and Windows (2x) minutes.
       matrix:
-        os: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

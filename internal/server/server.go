@@ -87,6 +87,12 @@ func (s *Server) Routes() {
 	s.handleFunc("DELETE /api/components/{key}", s.handleDeleteComponent)
 	s.handleFunc("POST /api/components/{key}/check", s.handleCheckComponent)
 
+	// Admin API for managed keys and the audit log (see authkeys.go).
+	s.handleFunc("POST /api/auth/keys", s.handleCreateKey)
+	s.handleFunc("GET /api/auth/keys", s.handleListKeys)
+	s.handleFunc("DELETE /api/auth/keys/{id}", s.handleRevokeKey)
+	s.handleFunc("GET /api/auth/audit", s.handleListAudit)
+
 	// Dashboard login/logout (unauthenticated; see login.go).
 	s.handleFunc("GET /login", s.handleLoginPage)
 	s.handleFunc("POST /login", s.handleLogin)

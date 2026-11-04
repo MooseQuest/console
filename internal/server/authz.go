@@ -59,6 +59,12 @@ var routeScopes = map[string]scopeRule{
 	"POST /api/components/{key}/check": need(auth.Write),
 	"POST /flags/{key}/toggle":         need(auth.Write),
 	"POST /status/{key}/check":         need(auth.Write),
+
+	// admin (managed keys and audit log; 501 when there is no KeyStore).
+	"POST /api/auth/keys":        need(auth.Admin),
+	"GET /api/auth/keys":         need(auth.Admin),
+	"DELETE /api/auth/keys/{id}": need(auth.Admin),
+	"GET /api/auth/audit":        need(auth.Admin),
 }
 
 type principalKey struct{}

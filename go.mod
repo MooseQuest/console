@@ -1,6 +1,6 @@
 module github.com/moosequest/console
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/hashicorp/go-hclog v1.6.3

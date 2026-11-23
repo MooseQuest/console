@@ -4,6 +4,14 @@ All notable changes to Console are documented here. This project adheres to
 [Semantic Versioning](https://semver.org). While on `0.x`, minor releases may
 include breaking changes to the API and plugin protocol.
 
+## [Unreleased]
+
+### Security
+- Floor raised to **Go 1.26.11**, which clears stdlib advisory GO-2026-6859
+  (`net/http`: HTTP/1 server crash due to a `MaxBytesReader` header race).
+  The finding was reachable through the server's request-body limits. Release
+  bundles and the container image are built with this toolchain.
+
 ## [0.8.0] - 2026-10-30
 
 ### BREAKING

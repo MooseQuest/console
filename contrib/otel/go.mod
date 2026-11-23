@@ -1,6 +1,6 @@
 module github.com/moosequest/console/contrib/otel
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/moosequest/console v0.0.0-00010101000000-000000000000
